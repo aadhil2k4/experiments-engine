@@ -31,7 +31,7 @@ export function isMABExperimentStateNormal(
   return state.methodType === "mab" && state.priorType === "normal";
 }
 
-function isCMABExperimentState(
+export function isCMABExperimentState(
   state: ExperimentState
 ): state is CMABExperimentState {
   return state.methodType === "cmab";

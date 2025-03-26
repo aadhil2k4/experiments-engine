@@ -7,12 +7,11 @@ import {
 import { Button } from "@/components/catalyst/button";
 import { Input } from "@/components/catalyst/input";
 import { Textarea } from "@/components/catalyst/textarea";
-import { useExperiment } from "../AddExperimentContext";
 import {
-  CMABExperimentState,
-  NewCMABArm,
-  StepComponentProps,
-} from "../../../types";
+  useExperimentStore,
+  isCMABExperimentState,
+} from "../../../store/useExperimentStore";
+import { NewCMABArm, StepComponentProps } from "../../../types";
 import { PlusIcon } from "@heroicons/react/16/solid";
 import { DividerWithTitle } from "@/components/Dividers";
 import { TrashIcon } from "@heroicons/react/16/solid";
@@ -20,7 +19,10 @@ import { Heading } from "@/components/catalyst/heading";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function AddCMABArms({ onValidate }: StepComponentProps) {
-  const { experimentState, setExperimentState } = useExperiment();
+  const { experimentState, updateArm, addArm, removeArm } =
+    useExperimentStore();
+
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   const baseArmDesc = useMemo(
     () => ({
@@ -35,31 +37,20 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
     []
   );
 
-  const additionalArmDesc = useMemo(() => ({ mu_init: 0, sigma_init: 1 }), []);
-
   const [errors, setErrors] = useState(() => {
     return experimentState.arms.map(() => {
       return { ...baseArmDesc, ...additionalArmErrors };
     });
   });
 
-  const arms = useCallback(() => {
-    if (experimentState.methodType === "cmab") {
-      return experimentState.arms as NewCMABArm[];
-    }
-    return [] as NewCMABArm[];
-  }, [experimentState])();
-
-  const defaultArm = { ...baseArmDesc, ...additionalArmDesc };
-
   const validateForm = useCallback(() => {
     let isValid = true;
-    const newErrors = arms.map(() => ({
+    const newErrors = experimentState.arms.map(() => ({
       ...baseArmDesc,
       ...additionalArmErrors,
     }));
 
-    arms.forEach((arm, index) => {
+    experimentState.arms.forEach((arm, index) => {
       if (!arm.name.trim()) {
         newErrors[index].name = "Arm name is required";
         isValid = false;
@@ -89,7 +80,7 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
     });
 
     return { isValid, newErrors };
-  }, [arms, baseArmDesc, additionalArmErrors]);
+  }, [experimentState, baseArmDesc, additionalArmErrors]);
 
   useEffect(() => {
     const { isValid, newErrors } = validateForm();
@@ -107,34 +98,30 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
   }, [validateForm, onValidate, errors]);
 
   useEffect(() => {
-    if (experimentState.methodType === "cmab") {
-      const convertedArms = experimentState.arms.map((arm) => {
-        const newArm = {
-          name: arm.name || "",
-          description: arm.description || "",
-          mu_init: "mu_init" in arm ? arm.mu_init : 0,
-          sigma_init: "sigma_init" in arm ? arm.sigma_init : 1,
-        } as NewCMABArm;
-        return newArm;
-      });
+    const newInputValues: Record<string, string> = {};
 
-      // Update experiment state with converted arms
-      setExperimentState({
-        ...experimentState,
-        arms: convertedArms as typeof experimentState.arms,
+    if (isCMABExperimentState(experimentState)) {
+      experimentState.arms.forEach((arm, index) => {
+        newInputValues[`${index}-mu_init`] = (
+          (arm as NewCMABArm).mu_init || 0
+        ).toString();
       });
     }
-  }, [experimentState, setExperimentState]);
+    setInputValues(newInputValues);
+  }, [experimentState]);
 
-  const typeSafeSetExperimentState = (newArms: NewCMABArm[]) => {
-    if (experimentState.methodType === "cmab") {
-      setExperimentState({
-        ...experimentState,
-        arms: newArms,
-      } as CMABExperimentState);
-    } else {
-      console.error("Method type is not CMAB");
-      throw new Error("Method type is not CMAB");
+  const handleNumericChange = (index: number, value: string) => {
+    // Update the local input state for a smooth typing experience
+    setInputValues((prev) => ({
+      ...prev,
+      [`${index}-mu_init`]: value,
+    }));
+
+    if (value !== "" && value !== "-") {
+      const numValue = Number.parseFloat(value);
+      if (!isNaN(numValue)) {
+        updateArm(index, { mu_init: numValue });
+      }
     }
   };
 
@@ -143,45 +130,16 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
       <div className="flex w-full flex-wrap items-end justify-between gap-4 border-b border-zinc-950/10 pb-6 dark:border-white/10">
         <Heading>Add CMAB Arms</Heading>
         <div className="flex gap-4">
-          <Button
-            className="mt-4"
-            onClick={() =>
-              setExperimentState((prevState) => {
-                if (prevState.methodType === "cmab") {
-                  return {
-                    ...prevState,
-                    arms: [
-                      ...(prevState.arms as NewCMABArm[]),
-                      defaultArm as NewCMABArm,
-                    ],
-                  };
-                } else {
-                  console.error("Method type is not CMAB");
-                  throw new Error("Method type is not CMAB");
-                }
-              })
-            }
-          >
+          <Button className="mt-4" onClick={addArm}>
             <PlusIcon className="w-4 h-4 mr-2" />
             Add Arm
           </Button>
           <Button
             className="mt-4 mx-4"
-            disabled={arms.length <= 2}
+            disabled={experimentState.arms.length <= 2}
             outline
             onClick={() => {
-              if (experimentState.methodType === "cmab") {
-                setExperimentState({
-                  ...experimentState,
-                  arms: experimentState.arms.slice(
-                    0,
-                    experimentState.arms.length - 1
-                  ) as NewCMABArm[],
-                });
-              } else {
-                console.error("Method type is not MAB");
-                throw new Error("Method type is not MAB");
-              }
+              removeArm(experimentState.arms.length - 1);
             }}
           >
             <TrashIcon className="w-4 h-4 mr-2" />
@@ -189,8 +147,8 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
           </Button>
         </div>
       </div>
-      <Fieldset aria-label="Add MAB Arms">
-        {arms.map((arm, index) => (
+      <Fieldset aria-label="Add CMAB Arms">
+        {experimentState.arms.map((arm, index) => (
           <div key={index}>
             <DividerWithTitle title={`Arm ${index + 1}`} />
             <FieldGroup
@@ -206,11 +164,9 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
                         name={`arm-${index + 1}-name`}
                         placeholder="Give the arm a searchable name"
                         value={arm.name || ""}
-                        onChange={(e) => {
-                          const newArms = [...arms];
-                          newArms[index].name = e.target.value;
-                          typeSafeSetExperimentState(newArms as NewCMABArm[]);
-                        }}
+                        onChange={(e) =>
+                          updateArm(index, { name: e.target.value })
+                        }
                       />
                       {errors[index]?.name ? (
                         <p className="text-red-500 text-xs mt-1">
@@ -232,11 +188,9 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
                         name={`arm-${index + 1}-description`}
                         placeholder="Describe the arm"
                         value={arm.description || ""}
-                        onChange={(e) => {
-                          const newArms = [...arms];
-                          newArms[index].description = e.target.value;
-                          typeSafeSetExperimentState(newArms as NewCMABArm[]);
-                        }}
+                        onChange={(e) =>
+                          updateArm(index, { description: e.target.value })
+                        }
                       />
                       {errors[index]?.description ? (
                         <p className="text-red-500 text-xs mt-1">
@@ -264,16 +218,11 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
                         placeholder="Enter a float as mean for the prior"
                         defaultValue={0}
                         value={
-                          "mu_init" in arm
-                            ? arm.mu_init === 0
-                              ? "0"
-                              : arm.mu_init || ""
-                            : ""
+                          inputValues[`${index}-mu_init`] ??
+                          (arm as NewCMABArm).mu_init?.toString()
                         }
                         onChange={(e) => {
-                          const newArms = [...arms];
-                          newArms[index].mu_init = parseFloat(e.target.value);
-                          typeSafeSetExperimentState(newArms as NewCMABArm[]);
+                          handleNumericChange(index, e.target.value);
                         }}
                       />
                       {errors[index]?.mu_init ? (
@@ -301,19 +250,11 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
                         type="number"
                         defaultValue={1}
                         placeholder="Enter a float as standard deviation for the prior"
-                        value={
-                          "sigma_init" in arm
-                            ? arm.sigma_init === 0
-                              ? "0"
-                              : arm.sigma_init || ""
-                            : ""
-                        }
+                        value={(arm as NewCMABArm).sigma_init || ""}
                         onChange={(e) => {
-                          const newArms = [...arms];
-                          newArms[index].sigma_init = parseFloat(
-                            e.target.value
-                          );
-                          typeSafeSetExperimentState(newArms as NewCMABArm[]);
+                          updateArm(index, {
+                            sigma_init: Number(e.target.value),
+                          });
                         }}
                       />
                       {errors[index]?.sigma_init ? (

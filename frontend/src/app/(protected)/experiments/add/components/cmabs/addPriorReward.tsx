@@ -11,7 +11,6 @@ export default function CMABPriorRewardSelection({
   onValidate,
 }: StepComponentProps) {
   const { experimentState, updateRewardType } = useExperimentStore();
-  console.log(experimentState);
   const [errors, setErrors] = useState({
     priorType: "",
     rewardType: "",
