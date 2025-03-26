@@ -1,17 +1,17 @@
 "use client";
-
+import { useExperimentStore } from "../../../store/useExperimentStore";
 import { useCallback, useState, useEffect } from "react";
 import { Radio, RadioField, RadioGroup } from "@/components/catalyst/radio";
 import { Fieldset, Label, Description } from "@/components/catalyst/fieldset";
 import type { RewardType, StepComponentProps } from "../../../types";
-import { useExperiment } from "../AddExperimentContext";
 import { Heading } from "@/components/catalyst/heading";
 import { DividerWithTitle } from "@/components/Dividers";
 
 export default function CMABPriorRewardSelection({
   onValidate,
 }: StepComponentProps) {
-  const { experimentState, setExperimentState } = useExperiment();
+  const { experimentState, updateRewardType } = useExperimentStore();
+  console.log(experimentState);
   const [errors, setErrors] = useState({
     priorType: "",
     rewardType: "",
@@ -33,13 +33,6 @@ export default function CMABPriorRewardSelection({
     return { isValid, newErrors };
   }, [experimentState.rewardType]);
 
-  const setRewardType = (value: keyof RewardType) => {
-    setExperimentState((prevState) => ({
-      ...prevState,
-      rewardType: value as RewardType,
-    }));
-  };
-
   useEffect(() => {
     const { isValid, newErrors } = validateForm();
     setErrors(newErrors);
@@ -50,8 +43,6 @@ export default function CMABPriorRewardSelection({
         errors: newErrors,
       });
     }
-
-    console.log("Validation state:", { isValid, errors: newErrors });
   }, [validateForm, onValidate, experimentState]);
 
   return (
@@ -86,7 +77,7 @@ export default function CMABPriorRewardSelection({
         <RadioGroup
           name="rewardType"
           defaultValue=""
-          onChange={(value) => setRewardType(value as keyof RewardType)}
+          onChange={(value) => updateRewardType(value as RewardType)}
           value={experimentState.rewardType}
         >
           <div className="mb-4" />
