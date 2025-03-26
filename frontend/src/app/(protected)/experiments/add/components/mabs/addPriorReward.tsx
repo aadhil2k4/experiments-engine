@@ -1,37 +1,21 @@
+import { useExperimentStore } from "../../../store/useExperimentStore";
 import { useCallback, useState, useEffect } from "react";
 import { Radio, RadioField, RadioGroup } from "@/components/catalyst/radio";
 import { Fieldset, Label, Description } from "@/components/catalyst/fieldset";
 import { PriorType, RewardType, StepComponentProps } from "../../../types";
-import { useExperiment } from "../AddExperimentContext";
 import { Heading } from "@/components/catalyst/heading";
 import { DividerWithTitle } from "@/components/Dividers";
 
 export default function MABPriorRewardSelection({
   onValidate,
 }: StepComponentProps) {
-  const { experimentState, setExperimentState } = useExperiment();
+  const { experimentState, updatePriorType, updateRewardType } =
+    useExperimentStore();
+  console.log(experimentState);
   const [errors, setErrors] = useState({
     priorType: "",
     rewardType: "",
   });
-
-  const setPriorType = (value: keyof PriorType) => {
-    setExperimentState((prevState) => {
-      return {
-        ...prevState,
-        priorType: value as PriorType,
-      };
-    });
-  };
-
-  const setRewardType = (value: keyof RewardType) => {
-    setExperimentState((prevState) => {
-      return {
-        ...prevState,
-        rewardType: value as RewardType,
-      };
-    });
-  };
 
   const validateForm = useCallback(() => {
     let isValid = true;
@@ -88,7 +72,7 @@ export default function MABPriorRewardSelection({
         <RadioGroup
           name="priorType"
           defaultValue=""
-          onChange={(value) => setPriorType(value as keyof PriorType)}
+          onChange={(value) => updatePriorType(value as PriorType)}
           value={experimentState.priorType}
         >
           <div className="mb-4" />
@@ -119,7 +103,7 @@ export default function MABPriorRewardSelection({
         <RadioGroup
           name="rewardType"
           defaultValue=""
-          onChange={(value) => setRewardType(value as keyof RewardType)}
+          onChange={(value) => updateRewardType(value as RewardType)}
           value={experimentState.rewardType}
         >
           <div className="mb-4" />

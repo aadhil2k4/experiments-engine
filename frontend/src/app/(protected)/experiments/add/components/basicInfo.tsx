@@ -12,9 +12,7 @@ import { Input } from "@/components/catalyst/input";
 import { Textarea } from "@/components/catalyst/textarea";
 import { AllSteps } from "./addExperimentSteps";
 import { Heading } from "@/components/catalyst/heading";
-import {
-  StepValidation,
-} from "../../types";
+import { StepValidation } from "../../types";
 
 type Methods = typeof AllSteps;
 
@@ -24,10 +22,8 @@ export default function AddBasicInfo({
   setMethodType: (method: keyof Methods) => void;
   onValidate: (validation: StepValidation) => void;
 }) {
-
   const { experimentState, updateName, updateDescription, updateMethodType } =
     useExperimentStore();
-  console.log(experimentState);
   const [errors, setErrors] = useState({
     name: "",
     description: "",
