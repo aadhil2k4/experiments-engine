@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import { useState, useCallback } from "react";
 import { AllSteps } from "./components/addExperimentSteps";
 import AddBasicInfo from "./components/basicInfo";
@@ -33,7 +33,16 @@ export default function NewExperiment() {
 
   type Methods = typeof AllSteps;
 
-  const steps = AllSteps[experimentState.methodType];
+  const [steps, setSteps] = useState(AllSteps[experimentState.methodType]);
+
+  useEffect(() => {
+    setSteps(AllSteps[experimentState.methodType]);
+  }, [experimentState.methodType]);
+
+  useEffect(() => {
+    setSteps(AllSteps[experimentState.methodType]);
+    setCurrentStep(0);
+  }, [experimentState.methodType]);
 
   const nextStep = useCallback(() => {
     const currentValidation = stepValidations[currentStep];

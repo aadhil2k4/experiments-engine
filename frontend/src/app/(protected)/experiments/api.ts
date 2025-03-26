@@ -1,11 +1,11 @@
 import api from "@/utils/api";
-import {
-  MABExperimentStateNormal,
-  MABExperimentStateBeta,
-  ABExperimentState,
-  CMABExperimentState,
-} from "./types";
 import { ExperimentState } from "./types";
+import {
+  isMABExperimentStateBeta,
+  isMABExperimentStateNormal,
+  isCMABExperimentState,
+  isABExperimentState,
+} from "./store/useExperimentStore";
 
 const createNewExperiment = async ({
   experimentData,
@@ -14,42 +14,57 @@ const createNewExperiment = async ({
   experimentData: ExperimentState;
   token: string | null;
 }) => {
-  let endpoint: string;
-  let newExperimentData:
-    | MABExperimentStateNormal
-    | MABExperimentStateBeta
-    | ABExperimentState
-    | CMABExperimentState;
+  const getEndpointAndData = (
+    data: ExperimentState
+  ): {
+    endpoint: string;
+    convertedData: Record<
+      string,
+      string | string[] | boolean | number | object
+    >;
+  } => {
+    const baseData = {
+      name: data.name,
+      description: data.description,
+      arms: data.arms,
+      notifications: data.notifications,
+    };
 
-  if (experimentData.methodType == "mab") {
-    endpoint = "/mab/";
-    if (experimentData.priorType == "beta") {
-      newExperimentData = experimentData as MABExperimentStateBeta;
-    } else {
-      newExperimentData = experimentData as MABExperimentStateNormal;
+    if (isMABExperimentStateBeta(data) || isMABExperimentStateNormal(data)) {
+      return {
+        endpoint: "/mab/",
+        convertedData: {
+          ...baseData,
+          reward_type: data.rewardType,
+          prior_type: data.priorType,
+        },
+      };
     }
-  } else if (experimentData.methodType == "ab") {
-    newExperimentData = experimentData as ABExperimentState;
-    endpoint = "/ab/";
-  } else if (experimentData.methodType == "cmab") {
-    newExperimentData = experimentData as CMABExperimentState;
-    endpoint = "/contextual_mab/";
-  } else {
-    throw new Error("Invalid experiment type");
-  }
 
-  const convertedData = {
-    name: newExperimentData.name,
-    description: newExperimentData.description,
-    reward_type: newExperimentData.rewardType,
-    prior_type: newExperimentData.priorType,
-    arms: newExperimentData.arms,
-    notifications: newExperimentData.notifications,
+    if (isCMABExperimentState(data)) {
+      return {
+        endpoint: "/contextual_mab/",
+        convertedData: {
+          ...baseData,
+          reward_type: data.rewardType,
+          prior_type: data.priorType,
+          contexts: data.contexts,
+        },
+      };
+    }
+
+    if (isABExperimentState(data)) {
+      return {
+        endpoint: "/ab/",
+        convertedData: baseData,
+      };
+    }
+
+    throw new Error("Invalid experiment type");
   };
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    console.log(convertedData);
+    const { endpoint, convertedData } = getEndpointAndData(experimentData);
     const response = await api.post(endpoint, convertedData, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -59,9 +74,8 @@ const createNewExperiment = async ({
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`Error creating new experiment: ${error.message}`);
-    } else {
-      throw new Error("Error creating new experiment");
     }
+    throw new Error("Error creating new experiment");
   }
 };
 

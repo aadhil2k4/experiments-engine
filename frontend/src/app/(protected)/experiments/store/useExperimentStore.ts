@@ -19,7 +19,7 @@ import type {
 
 // Type guards for better type safety
 
-function isMABExperimentStateBeta(
+export function isMABExperimentStateBeta(
   state: ExperimentState
 ): state is MABExperimentStateBeta {
   return state.methodType === "mab" && state.priorType === "beta";
@@ -37,7 +37,7 @@ export function isCMABExperimentState(
   return state.methodType === "cmab";
 }
 
-function isABExperimentState(
+export function isABExperimentState(
   state: ExperimentState
 ): state is ABExperimentState {
   return state.methodType === "ab";
