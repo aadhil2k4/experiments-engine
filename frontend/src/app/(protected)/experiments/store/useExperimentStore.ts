@@ -24,7 +24,7 @@ function isMABExperimentStateBeta(
   return state.methodType === "mab" && state.priorType === "beta";
 }
 
-function isMABExperimentStateNormal(
+export function isMABExperimentStateNormal(
   state: ExperimentState
 ): state is MABExperimentStateNormal {
   return state.methodType === "mab" && state.priorType === "normal";
@@ -349,7 +349,9 @@ export const useExperimentStore = create<ExperimentStore>()(
       ) =>
         set((state) => {
           if (isMABExperimentStateBeta(state.experimentState)) {
-            const newArms = [...state.experimentState.arms] as NewMABArmBeta[];
+            const newArms = JSON.parse(
+              JSON.stringify(state.experimentState.arms)
+            ) as NewMABArmBeta[];
             newArms[index] = {
               ...newArms[index],
               ...(armUpdate as Partial<NewMABArmBeta>),
@@ -358,9 +360,9 @@ export const useExperimentStore = create<ExperimentStore>()(
               experimentState: { ...state.experimentState, arms: newArms },
             };
           } else if (isMABExperimentStateNormal(state.experimentState)) {
-            const newArms = [
-              ...state.experimentState.arms,
-            ] as NewMABArmNormal[];
+            const newArms = JSON.parse(
+              JSON.stringify(state.experimentState.arms)
+            ) as NewMABArmNormal[];
             newArms[index] = {
               ...newArms[index],
               ...(armUpdate as Partial<NewMABArmNormal>),
@@ -369,7 +371,9 @@ export const useExperimentStore = create<ExperimentStore>()(
               experimentState: { ...state.experimentState, arms: newArms },
             };
           } else if (isCMABExperimentState(state.experimentState)) {
-            const newArms = [...state.experimentState.arms] as NewCMABArm[];
+            const newArms = JSON.parse(
+              JSON.stringify(state.experimentState.arms)
+            ) as NewCMABArm[];
             newArms[index] = {
               ...newArms[index],
               ...(armUpdate as Partial<NewCMABArm>),
@@ -377,8 +381,10 @@ export const useExperimentStore = create<ExperimentStore>()(
             return {
               experimentState: { ...state.experimentState, arms: newArms },
             };
-          } else {
-            const newArms = [...state.experimentState.arms] as NewABArm[];
+          } else if (isABExperimentState(state.experimentState)) {
+            const newArms = JSON.parse(
+              JSON.stringify(state.experimentState.arms)
+            ) as NewABArm[];
             newArms[index] = {
               ...newArms[index],
               ...(armUpdate as Partial<NewABArm>),
@@ -386,6 +392,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             return {
               experimentState: { ...state.experimentState, arms: newArms },
             };
+          } else {
+            throw new Error("Invalid method type");
           }
         }),
 

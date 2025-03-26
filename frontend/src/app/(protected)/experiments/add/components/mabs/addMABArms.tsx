@@ -1,4 +1,8 @@
 import {
+  useExperimentStore,
+  isMABExperimentStateNormal,
+} from "../../../store/useExperimentStore";
+import {
   Field,
   FieldGroup,
   Fieldset,
@@ -7,13 +11,11 @@ import {
 import { Button } from "@/components/catalyst/button";
 import { Input } from "@/components/catalyst/input";
 import { Textarea } from "@/components/catalyst/textarea";
-import { useExperiment } from "../AddExperimentContext";
 import {
-  MABExperimentStateNormal,
-  MABExperimentStateBeta,
-  NewMABArmBeta,
   NewMABArmNormal,
   StepComponentProps,
+  MABArmBeta,
+  MABArmNormal,
 } from "../../../types";
 import { PlusIcon } from "@heroicons/react/16/solid";
 import { DividerWithTitle } from "@/components/Dividers";
@@ -22,7 +24,11 @@ import { Heading } from "@/components/catalyst/heading";
 import { useCallback, useEffect, useState, useMemo } from "react";
 
 export default function AddMABArms({ onValidate }: StepComponentProps) {
-  const { experimentState, setExperimentState } = useExperiment();
+  const { experimentState, updateArm, addArm, removeArm } =
+    useExperimentStore();
+  console.log("experimentState", experimentState);
+
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   const baseArmDesc = useMemo(
     () => ({
@@ -40,40 +46,20 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
     [experimentState]
   );
 
-  const additionalArmDesc = useMemo(
-    () =>
-      experimentState.priorType === "beta"
-        ? { alpha: 1, beta: 1 }
-        : { mu: 0, sigma: 1 },
-    [experimentState]
-  );
-
   const [errors, setErrors] = useState(() => {
     return experimentState.arms.map(() => {
       return { ...baseArmDesc, ...additionalArmErrors };
     });
   });
 
-  const arms = useCallback(() => {
-    return experimentState.methodType === "mab" &&
-      experimentState.priorType === "beta"
-      ? (experimentState.arms as NewMABArmBeta[])
-      : (experimentState.arms as NewMABArmNormal[]);
-  }, [experimentState])();
-
-  const defaultArm = useMemo(
-    () => ({ ...baseArmDesc, ...additionalArmDesc }),
-    [baseArmDesc, additionalArmDesc]
-  );
-
   const validateForm = useCallback(() => {
     let isValid = true;
-    const newErrors = arms.map(() => ({
+    const newErrors = experimentState.arms.map(() => ({
       ...baseArmDesc,
       ...additionalArmErrors,
     }));
 
-    arms.forEach((arm, index) => {
+    experimentState.arms.forEach((arm, index) => {
       if (!arm.name.trim()) {
         newErrors[index].name = "Arm name is required";
         isValid = false;
@@ -127,7 +113,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
       }
     });
     return { isValid, newErrors };
-  }, [arms, experimentState, baseArmDesc, additionalArmErrors]);
+  }, [experimentState, baseArmDesc, additionalArmErrors]);
 
   useEffect(() => {
     const { isValid, newErrors } = validateForm();
@@ -145,40 +131,30 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
   }, [validateForm, onValidate, errors]);
 
   useEffect(() => {
-    if (experimentState.methodType === "mab") {
-      // Update experiment state with converted arms
-      if (experimentState.priorType === "beta") {
-        setExperimentState({
-          ...experimentState,
-          arms: experimentState.arms as NewMABArmBeta[],
-        });
-      } else if (experimentState.priorType === "normal") {
-        setExperimentState({
-          ...experimentState,
-          arms: experimentState.arms as NewMABArmNormal[],
-        });
-      }
-    }
-  }, [experimentState, arms, setExperimentState]); // Only run when prior type changes
+    const newInputValues: Record<string, string> = {};
 
-  const typeSafeSetExperimentState = (
-    newArms: NewMABArmBeta[] | NewMABArmNormal[]
-  ) => {
-    if (experimentState.methodType === "mab") {
-      if (experimentState.priorType === "beta") {
-        setExperimentState({
-          ...experimentState,
-          arms: newArms as NewMABArmBeta[],
-        } as MABExperimentStateBeta);
-      } else if (experimentState.priorType === "normal") {
-        setExperimentState({
-          ...experimentState,
-          arms: newArms as NewMABArmNormal[],
-        } as MABExperimentStateNormal);
+    if (isMABExperimentStateNormal(experimentState)) {
+      experimentState.arms.forEach((arm, index) => {
+        newInputValues[`${index}-mu`] = (
+          (arm as MABArmNormal).mu || 0
+        ).toString();
+      });
+    }
+    setInputValues(newInputValues);
+  }, [experimentState]);
+
+  const handleNumericChange = (index: number, value: string) => {
+    // Update the local input state for a smooth typing experience
+    setInputValues((prev) => ({
+      ...prev,
+      [`${index}-mu`]: value,
+    }));
+
+    if (value !== "" && value !== "-") {
+      const numValue = Number.parseFloat(value);
+      if (!isNaN(numValue)) {
+        updateArm(index, { mu: numValue });
       }
-    } else {
-      console.error("Method type is not MAB");
-      throw new Error("Method type is not MAB");
     }
   };
 
@@ -187,73 +163,16 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
       <div className="flex w-full flex-wrap items-end justify-between gap-4 border-b border-zinc-950/10 pb-6 dark:border-white/10">
         <Heading>Add MAB Arms</Heading>
         <div className="flex gap-4">
-          <Button
-            className="mt-4"
-            onClick={() =>
-              setExperimentState((prevState) => {
-                if (prevState.methodType === "mab") {
-                  if (experimentState.priorType === "beta") {
-                    return {
-                      ...prevState,
-                      arms: [
-                        ...(prevState.arms as NewMABArmBeta[]),
-                        defaultArm as NewMABArmBeta,
-                      ],
-                    };
-                  } else if (experimentState.priorType === "normal") {
-                    return {
-                      ...prevState,
-                      arms: [
-                        ...(prevState.arms as NewMABArmNormal[]),
-                        defaultArm as NewMABArmNormal,
-                      ],
-                    };
-                  } else {
-                    throw new Error("Unsupported prior type");
-                  }
-                } else {
-                  console.error("Method type is not MAB");
-                  throw new Error("Method type is not MAB");
-                }
-              })
-            }
-          >
+          <Button className="mt-4" onClick={addArm}>
             <PlusIcon className="w-4 h-4 mr-2" />
             Add Arm
           </Button>
           <Button
             className="mt-4 mx-4"
-            disabled={arms.length <= 2}
+            disabled={experimentState.arms.length <= 2}
             outline
             onClick={() => {
-              if (experimentState.methodType === "mab") {
-                experimentState.priorType === "beta"
-                  ? setExperimentState({
-                      ...experimentState,
-                      arms: experimentState.arms.slice(
-                        0,
-                        experimentState.arms.length - 1
-                      ) as NewMABArmBeta[],
-                    })
-                  : experimentState.priorType === "normal"
-                  ? setExperimentState({
-                      ...experimentState,
-                      arms: experimentState.arms.slice(
-                        0,
-                        experimentState.arms.length - 1
-                      ) as NewMABArmNormal[],
-                    })
-                  : setExperimentState({
-                      ...experimentState,
-                      arms: experimentState.arms.slice(
-                        0,
-                        experimentState.arms.length - 1
-                      ) as NewMABArmBeta[],
-                    });
-              } else {
-                console.error("Method type is not MAB");
-                throw new Error("Method type is not MAB");
-              }
+              removeArm(experimentState.arms.length - 1);
             }}
           >
             <TrashIcon className="w-4 h-4 mr-2" />
@@ -262,7 +181,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
         </div>
       </div>
       <Fieldset aria-label="Add MAB Arms">
-        {arms.map((arm, index) => (
+        {experimentState.arms.map((arm, index) => (
           <div key={index}>
             <DividerWithTitle title={`Arm ${index + 1}`} />
             <FieldGroup
@@ -278,19 +197,9 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                         name={`arm-${index + 1}-name`}
                         placeholder="Give the arm a searchable name"
                         value={arm.name || ""}
-                        onChange={(e) => {
-                          const newArms = [...arms];
-                          newArms[index].name = e.target.value;
-                          if (experimentState.priorType === "beta") {
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmBeta[]
-                            );
-                          } else if (experimentState.priorType === "normal") {
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmNormal[]
-                            );
-                          }
-                        }}
+                        onChange={(e) =>
+                          updateArm(index, { name: e.target.value })
+                        }
                       />
                       {errors[index]?.name ? (
                         <p className="text-red-500 text-xs mt-1">
@@ -312,19 +221,9 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                         name={`arm-${index + 1}-description`}
                         placeholder="Describe the arm"
                         value={arm.description || ""}
-                        onChange={(e) => {
-                          const newArms = [...arms];
-                          newArms[index].description = e.target.value;
-                          if (experimentState.priorType === "beta") {
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmBeta[]
-                            );
-                          } else if (experimentState.priorType === "normal") {
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmNormal[]
-                            );
-                          }
-                        }}
+                        onChange={(e) =>
+                          updateArm(index, { description: e.target.value })
+                        }
                       />
                       {errors[index]?.description ? (
                         <p className="text-red-500 text-xs mt-1">
@@ -352,23 +251,11 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           id={`arm-${index + 1}-alpha`}
                           name={`arm-${index + 1}-alpha`}
                           placeholder="Enter an integer as the prior for the alpha parameter"
-                          value={
-                            experimentState.priorType === "beta" &&
-                            "alpha" in arm
-                              ? arm.alpha || ""
-                              : ""
-                          }
+                          value={(arm as MABArmBeta).alpha || ""}
                           onChange={(e) => {
-                            const newArms = [...arms];
-                            if (
-                              experimentState.priorType === "beta" &&
-                              "alpha" in newArms[index]
-                            ) {
-                              newArms[index].alpha = parseInt(e.target.value);
-                            }
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmBeta[]
-                            );
+                            updateArm(index, {
+                              alpha: parseInt(e.target.value),
+                            });
                           }}
                         />
                         {errors[index]?.alpha ? (
@@ -394,23 +281,11 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           id={`arm-${index + 1}-beta`}
                           name={`arm-${index + 1}-beta`}
                           placeholder="Enter an integer as the prior for the beta parameter"
-                          value={
-                            experimentState.priorType === "beta" &&
-                            "beta" in arm
-                              ? arm.beta || ""
-                              : ""
-                          }
+                          value={(arm as MABArmBeta).beta || ""}
                           onChange={(e) => {
-                            const newArms = [...arms];
-                            if (
-                              experimentState.priorType === "beta" &&
-                              "beta" in newArms[index]
-                            ) {
-                              newArms[index].beta = parseInt(e.target.value);
-                            }
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmBeta[]
-                            );
+                            updateArm(index, {
+                              beta: parseInt(e.target.value),
+                            });
                           }}
                         />
                         {errors[index]?.beta ? (
@@ -443,24 +318,11 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           placeholder="Enter a float as mean for the prior"
                           defaultValue={0}
                           value={
-                            experimentState.priorType === "normal" &&
-                            "mu" in arm
-                              ? arm.mu === 0
-                                ? "0"
-                                : arm.mu || ""
-                              : ""
+                            inputValues[`${index}-mu`] ??
+                            (arm as MABArmNormal).mu?.toString()
                           }
                           onChange={(e) => {
-                            const newArms = [...arms];
-                            if (
-                              experimentState.priorType === "normal" &&
-                              "mu" in newArms[index]
-                            ) {
-                              newArms[index].mu = parseFloat(e.target.value);
-                            }
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmNormal[]
-                            );
+                            handleNumericChange(index, e.target.value);
                           }}
                         />
                         {errors[index]?.mu ? (
@@ -488,25 +350,9 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           type="number"
                           defaultValue={1}
                           placeholder="Enter a float as standard deviation for the prior"
-                          value={
-                            experimentState.priorType === "normal" &&
-                            "sigma" in arm
-                              ? arm.sigma === 0
-                                ? "0"
-                                : arm.sigma || ""
-                              : ""
-                          }
+                          value={(arm as NewMABArmNormal).sigma || ""}
                           onChange={(e) => {
-                            const newArms = [...arms];
-                            if (
-                              experimentState.priorType === "normal" &&
-                              "sigma" in newArms[index]
-                            ) {
-                              newArms[index].sigma = parseFloat(e.target.value);
-                            }
-                            typeSafeSetExperimentState(
-                              newArms as NewMABArmNormal[]
-                            );
+                            updateArm(index, { sigma: Number(e.target.value) });
                           }}
                         />
                         {errors[index]?.sigma ? (

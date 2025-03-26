@@ -11,7 +11,6 @@ export default function MABPriorRewardSelection({
 }: StepComponentProps) {
   const { experimentState, updatePriorType, updateRewardType } =
     useExperimentStore();
-  console.log(experimentState);
   const [errors, setErrors] = useState({
     priorType: "",
     rewardType: "",
