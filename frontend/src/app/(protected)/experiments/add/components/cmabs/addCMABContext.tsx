@@ -182,7 +182,7 @@ export default function AddCMABContext({ onValidate }: StepComponentProps) {
                           }}
                         >
                           <div className="space-y-2">
-                            <RadioField className="flex items-start space-x-2 rounded-md border border-gray-800 p-3 hover:bg-gray-800/50 transition-colors">
+                            <RadioField className="flex items-start space-x-2 rounded-md border border-gray-800 p-3 transition-colors data-[state=checked]:border-primary data-[state=checked]:border-2 hover:bg-transparent">
                               <Radio
                                 id={`context-${index}-binary`}
                                 value="binary"
@@ -197,7 +197,7 @@ export default function AddCMABContext({ onValidate }: StepComponentProps) {
                               </div>
                             </RadioField>
 
-                            <RadioField className="flex items-start space-x-2 rounded-md border border-gray-800 p-3 hover:bg-gray-800/50 transition-colors">
+                            <RadioField className="flex items-start space-x-2 rounded-md border border-gray-800 p-3 transition-colors data-[state=checked]:border-primary data-[state=checked]:border-2 hover:bg-transparent">
                               <Radio
                                 id={`context-${index}-real-valued`}
                                 value="real-valued"
