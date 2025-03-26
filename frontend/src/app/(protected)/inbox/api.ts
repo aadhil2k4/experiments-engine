@@ -2,16 +2,12 @@ import api from "@/utils/api";
 import { Message } from "./types";
 
 const getMessages = async ({ token }: { token: string | null }) => {
-  try {
-    const response = await api.get("/messages/", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    return response.data as Message[];
-  } catch (error) {
-    throw error;
-  }
+  const response = await api.get("/messages/", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data as Message[];
 };
 
 const patchMessageReadStatus = async ({
@@ -23,23 +19,19 @@ const patchMessageReadStatus = async ({
   message_ids: number[];
   is_unread: boolean;
 }) => {
-  try {
-    const response = await api.patch(
-      "/messages/",
-      {
-        message_ids,
-        is_unread,
+  const response = await api.patch(
+    "/messages/",
+    {
+      message_ids,
+      is_unread,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.data as Message[];
-  } catch (error) {
-    throw error;
-  }
+    }
+  );
+  return response.data as Message[];
 };
 
 const deleteMessages = async ({
@@ -49,16 +41,12 @@ const deleteMessages = async ({
   token: string | null;
   message_ids: number[];
 }) => {
-  try {
-    const response = await api.delete("/messages/", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      data: message_ids,
-    });
-    return response.data as Message[];
-  } catch (error) {
-    throw error;
-  }
+  const response = await api.delete("/messages/", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    data: message_ids,
+  });
+  return response.data as Message[];
 };
 export { getMessages, patchMessageReadStatus, deleteMessages };

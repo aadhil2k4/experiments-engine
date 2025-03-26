@@ -62,8 +62,8 @@ const createNewExperiment = async ({
     } else {
       throw new Error("Error creating new experiment");
     }
-}
-}
+  }
+};
 
 const getAllMABExperiments = async (token: string | null) => {
   try {

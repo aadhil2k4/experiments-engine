@@ -10,7 +10,6 @@ import { Link } from "@/components/catalyst/link";
 import { useAuth } from "@/utils/auth";
 import { DividerWithTitle } from "@/components/Dividers";
 
-
 export default function Experiments() {
   const [haveExperiments, setHaveExperiments] = React.useState(false);
   const [mabExperiments, setMABExperiments] = React.useState<MABBeta[]>([]);
