@@ -102,7 +102,7 @@ def update_arm_laplace(
 
     result = minimize(objective, current_mu, method="L-BFGS-B", hess="2-point")
     new_mu = result.x
-    covariance = result.hess_inv.todense()
+    covariance = result.hess_inv.todense()  # type: ignore
 
     new_covariance = 0.5 * (covariance + covariance.T)
     return new_mu, new_covariance.astype(np.float64)
