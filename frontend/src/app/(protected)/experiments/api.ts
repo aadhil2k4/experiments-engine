@@ -86,7 +86,14 @@ const getAllMABExperiments = async (token: string | null) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data;
+    const convertedData = response.data.map(
+      (experiment: { prior_type: string; reward_type: string }) => ({
+        ...experiment,
+        priorType: experiment.prior_type,
+        rewardType: experiment.reward_type,
+      })
+    );
+    return convertedData;
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`Error fetching all experiments: ${error.message}`);
@@ -103,7 +110,14 @@ const getAllCMABExperiments = async (token: string | null) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data;
+    const convertedData = response.data.map(
+      (experiment: { prior_type: string; reward_type: string }) => ({
+        ...experiment,
+        priorType: experiment.prior_type,
+        rewardType: experiment.reward_type,
+      })
+    );
+    return convertedData;
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`Error fetching all experiments: ${error.message}`);
