@@ -154,8 +154,8 @@ class MultiArmedBandit(MultiArmedBanditBase):
 
                 if missing_params:
                     raise ValueError(
-                        f"{prior_type.value} prior requires {
-                        ', '.join(missing_params)}."
+                        f"{prior_type.value} prior requires {', '.join(
+                            missing_params)}."
                     )
         return self
 
