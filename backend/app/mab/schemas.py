@@ -153,10 +153,8 @@ class MultiArmedBandit(MultiArmedBanditBase):
                         missing_params.append(param)
 
                 if missing_params:
-                    raise ValueError(
-                        f"{prior_type.value} prior requires {', '.join(
-                            missing_params)}."
-                    )
+                    val = prior_type.value
+                    raise ValueError(f"{val} prior needs {','.join(missing_params)}.")
         return self
 
     model_config = ConfigDict(from_attributes=True)
