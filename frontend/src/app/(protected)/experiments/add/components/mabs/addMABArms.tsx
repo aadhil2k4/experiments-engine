@@ -26,7 +26,6 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 export default function AddMABArms({ onValidate }: StepComponentProps) {
   const { experimentState, updateArm, addArm, removeArm } =
     useExperimentStore();
-  console.log("experimentState", experimentState);
 
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 

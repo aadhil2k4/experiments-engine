@@ -14,6 +14,7 @@ import type {
   NewMABArmNormal,
   NewABArm,
   NewContext,
+  Notifications,
 } from "../types";
 
 // Type guards for better type safety
@@ -570,7 +571,7 @@ export const useExperimentStore = create<ExperimentStore>()(
         }),
 
       // ---------------- Notifications updates ----------------
-      updateNotifications: (notifications: ExperimentState["notifications"]) =>
+      updateNotifications: (notifications: Notifications) =>
         set((state) => ({
           experimentState: { ...state.experimentState, notifications },
         })),
