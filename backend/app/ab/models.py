@@ -198,7 +198,7 @@ async def get_ab_experiment_by_id(
     experiment_id: int,
     user_id: int,
     asession: AsyncSession,
-) -> ABExperimentDB:
+) -> ABExperimentDB | None:
     """
     Get the A/B experiment by id.
     """

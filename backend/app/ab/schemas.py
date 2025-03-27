@@ -73,6 +73,25 @@ class ABExperiment(MultiArmedBanditBase):
                     raise ValueError(f"{val} prior needs {','.join(missing_params)}.")
         return self
 
+    @model_validator(mode="after")
+    def check_notification_params(self) -> Self:
+        """
+        Check if the notification parameters are valid.
+        """
+
+        if (not self.notifications.onTrialCompletion) and (
+            not self.notifications.onDaysElapsed
+        ):
+            raise ValueError(
+                "At least one of trials completed\
+                              or days elapsed must be enabled."
+            )
+
+        if self.notifications.onPercentBetter:
+            raise ValueError("Percent better is not supported for A/B tests.")
+
+        return self
+
     model_config = ConfigDict(from_attributes=True)
 
 

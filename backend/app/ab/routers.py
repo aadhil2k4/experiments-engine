@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -6,18 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import authenticate_key, get_current_user
 from ..database import get_async_session
-from ..mab.sampling_utils import choose_arm, update_arm_params
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, Outcome, RewardLikelihood
 from ..users.models import UserDB
 from .models import (
     delete_ab_experiment_by_id,
     get_ab_experiment_by_id,
+    get_ab_observations_by_experiment_arm_id,
     get_ab_observations_by_experiment_id,
     get_all_ab_experiments,
     save_ab_observation_to_db,
     save_ab_to_db,
 )
+from .sampling_utils import choose_arm, update_arm_params
 from .schemas import (
     ABExperiment,
     ABExperimentObservation,
@@ -155,7 +157,7 @@ async def draw_arm(
 
 
 @router.put("/{experiment_id}/{arm_id}/{outcome}", response_model=ArmResponse)
-async def update_arm(
+async def save_observation_for_arm(
     experiment_id: int,
     arm_id: int,
     outcome: float,
@@ -182,33 +184,8 @@ async def update_arm(
 
     arm = arms[0]
 
-    # Update arm based on reward type
     if experiment_data.reward_type == RewardLikelihood.BERNOULLI:
         Outcome(outcome)  # Check if reward is 0 or 1
-        arm.alpha, arm.beta = update_arm_params(
-            ArmResponse.model_validate(arm),
-            experiment_data.prior_type,
-            experiment_data.reward_type,
-            outcome,
-        )
-
-    elif experiment_data.reward_type == RewardLikelihood.NORMAL:
-        arm.mu, arm.sigma = update_arm_params(
-            ArmResponse.model_validate(arm),
-            experiment_data.prior_type,
-            experiment_data.reward_type,
-            outcome,
-        )
-
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Reward type not supported.",
-        )
-
-    # Save modified arm to database
-    asession.add(arm)
-    await asession.commit()
 
     observation = ABExperimentObservation(
         experiment_id=experiment.experiment_id,
@@ -237,7 +214,6 @@ async def get_outcomes(
         raise HTTPException(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"
         )
-    experiment.n_trials += 1
 
     rewards = await get_ab_observations_by_experiment_id(
         experiment_id=experiment.experiment_id,
@@ -248,3 +224,81 @@ async def get_outcomes(
     return [
         ABExperimentObservationResponse.model_validate(reward) for reward in rewards
     ]
+
+
+@router.get(
+    "/{experiment_id}/final",
+    response_model=list[ABExperimentObservationResponse],
+)
+async def get_final_updated_arm(
+    experiment_id: int,
+    user_db: UserDB = Depends(authenticate_key),
+    asession: AsyncSession = Depends(get_async_session),
+) -> ABExperimentResponse:
+    """
+    Get the outcomes for the experiment.
+    """
+    experiment = await get_ab_experiment_by_id(experiment_id, user_db.user_id, asession)
+    if not experiment:
+        raise HTTPException(
+            status_code=404, detail=f"Experiment with id {experiment_id} not found"
+        )
+
+    # Check if the experiment has ended
+    notification = await get_notifications_from_db(
+        experiment_id=experiment.experiment_id,
+        user_id=user_db.user_id,
+        asession=asession,
+    )
+    notification_data = NotificationsResponse.model_validate(notification)
+
+    if notification_data.onTrialCompletion:
+        if not (experiment.n_trials >= notification_data.numberOfTrials):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Experiment {experiment_id} is not complete yet.",
+            )
+    if notification_data.onDaysElapsed:
+        now = datetime.now(timezone.utc)
+        days_elapsed = (now - experiment.created_datetime_utc).days
+        if not (days_elapsed >= notification_data.numberOfDays):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Experiment with id {experiment_id} is not complete yet.",
+            )
+
+    experiment_data = ABExperimentResponse.model_validate(experiment)
+
+    for i, arm in enumerate(experiment.arms):
+        arm_rewards = await get_ab_observations_by_experiment_arm_id(
+            experiment_id=experiment.experiment_id,
+            arm_id=arm.arm_id,
+            user_id=user_db.user_id,
+            asession=asession,
+        )
+        rewards = [reward.reward for reward in arm_rewards]
+
+        if experiment_data.reward_type == RewardLikelihood.BERNOULLI:
+            arm.alpha, arm.beta = update_arm_params(
+                ArmResponse.model_validate(arm),
+                experiment_data.prior_type,
+                experiment_data.reward_type,
+                rewards,
+            )
+        elif experiment_data.reward_type == RewardLikelihood.NORMAL:
+            arm.mu, arm.sigma = update_arm_params(
+                ArmResponse.model_validate(arm),
+                experiment_data.prior_type,
+                experiment_data.reward_type,
+                rewards,
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Reward type not supported.",
+            )
+        asession.add(arm)
+        experiment_data.arms[i] = ArmResponse.model_validate(arm)
+        await asession.commit()
+
+    return experiment_data
