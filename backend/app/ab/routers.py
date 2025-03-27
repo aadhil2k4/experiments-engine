@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import authenticate_key, get_current_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
-from ..schemas import NotificationsResponse, Outcome, RewardLikelihood
+from ..schemas import EventType, NotificationsResponse, Outcome, RewardLikelihood
 from ..users.models import UserDB
 from .models import (
     delete_ab_experiment_by_id,
@@ -252,16 +252,16 @@ async def get_final_updated_arm(
     )
     notification_data = NotificationsResponse.model_validate(notification)
 
-    if notification_data.onTrialCompletion:
-        if not (experiment.n_trials >= notification_data.numberOfTrials):
+    if notification_data.notification_type == EventType.TRIALS_COMPLETED:
+        if not (experiment.n_trials >= notification_data.notification_value):
             raise HTTPException(
                 status_code=400,
                 detail=f"Experiment {experiment_id} is not complete yet.",
             )
-    if notification_data.onDaysElapsed:
+    elif notification_data.notification_type == EventType.DAYS_ELAPSED:
         now = datetime.now(timezone.utc)
         days_elapsed = (now - experiment.created_datetime_utc).days
-        if not (days_elapsed >= notification_data.numberOfDays):
+        if not (days_elapsed >= notification_data.notification_value):
             raise HTTPException(
                 status_code=400,
                 detail=f"Experiment with id {experiment_id} is not complete yet.",
