@@ -48,6 +48,7 @@ def update_arm_normal(
     denom = sigma_llhood**2 + sigma**2
 
     new_sigma = sigma_llhood * sigma / np.sqrt(denom)
+    new_sigma = np.abs(new_sigma) + 1e-6
 
     new_mu = (mu * sigma_llhood**2 + np.mean(rewards) * sigma**2) / denom
 
@@ -84,7 +85,6 @@ def choose_arm(experiment: ABExperimentSample) -> int:
 
 def update_arm_params(
     arm: ArmResponse,
-    prior_type: ArmPriors,
     reward_type: RewardLikelihood,
     rewards: list[float],
 ) -> tuple[float, float]:
@@ -95,8 +95,6 @@ def update_arm_params(
     ----------
     arm : ArmResponse
         The arm data.
-    prior_type : ArmPriors
-        The prior type.
     reward_type : RewardLikelihood
         The reward type.
     rewards : list[float]
@@ -112,7 +110,7 @@ def update_arm_params(
         return update_arm_beta_binomial(arm.alpha, arm.beta, successes, failures)
 
     elif reward_type == RewardLikelihood.NORMAL:
-        if (not arm.mu) or (not arm.sigma):
+        if (arm.mu is None) or (arm.sigma is None):
             raise ValueError("Normal prior requires mu and sigma")
         return update_arm_normal(arm.mu, arm.sigma, rewards)
 

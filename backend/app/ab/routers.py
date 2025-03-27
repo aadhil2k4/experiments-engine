@@ -29,7 +29,7 @@ from .schemas import (
     ArmResponse,
 )
 
-router = APIRouter(prefix="/ab", tags=["Multi-Armed Bandits"])
+router = APIRouter(prefix="/ab", tags=["A/B Testing"])
 
 
 @router.post("/", response_model=ABExperimentResponse)
@@ -147,6 +147,7 @@ async def draw_arm(
     Get which arm to pull next for provided experiment.
     """
     experiment = await get_ab_experiment_by_id(experiment_id, user_db.user_id, asession)
+
     if experiment is None:
         raise HTTPException(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"
@@ -228,21 +229,26 @@ async def get_outcomes(
 
 @router.get(
     "/{experiment_id}/final",
-    response_model=list[ABExperimentObservationResponse],
+    response_model=list[ArmResponse],
 )
 async def get_final_updated_arm(
     experiment_id: int,
     user_db: UserDB = Depends(authenticate_key),
     asession: AsyncSession = Depends(get_async_session),
-) -> ABExperimentResponse:
+) -> list[ArmResponse]:
     """
     Get the outcomes for the experiment.
     """
+    # Check experiment params
     experiment = await get_ab_experiment_by_id(experiment_id, user_db.user_id, asession)
     if not experiment:
         raise HTTPException(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"
         )
+
+    # Return arms if update has already been done
+    if experiment.done_final_update:
+        return [ArmResponse.model_validate(arm) for arm in experiment.arms]
 
     # Check if the experiment has ended
     notification = await get_notifications_from_db(
@@ -250,7 +256,12 @@ async def get_final_updated_arm(
         user_id=user_db.user_id,
         asession=asession,
     )
-    notification_data = NotificationsResponse.model_validate(notification)
+    if not notification:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No notifications for experiment {experiment_id} found.",
+        )
+    notification_data = NotificationsResponse.model_validate(notification[-1])
 
     if notification_data.notification_type == EventType.TRIALS_COMPLETED:
         if not (experiment.n_trials >= notification_data.notification_value):
@@ -267,9 +278,11 @@ async def get_final_updated_arm(
                 detail=f"Experiment with id {experiment_id} is not complete yet.",
             )
 
-    experiment_data = ABExperimentResponse.model_validate(experiment)
+    # Make final update
+    experiment_data = ABExperimentSample.model_validate(experiment)
 
-    for i, arm in enumerate(experiment.arms):
+    arms_data = []
+    for arm in experiment.arms:
         arm_rewards = await get_ab_observations_by_experiment_arm_id(
             experiment_id=experiment.experiment_id,
             arm_id=arm.arm_id,
@@ -281,24 +294,29 @@ async def get_final_updated_arm(
         if experiment_data.reward_type == RewardLikelihood.BERNOULLI:
             arm.alpha, arm.beta = update_arm_params(
                 ArmResponse.model_validate(arm),
-                experiment_data.prior_type,
                 experiment_data.reward_type,
                 rewards,
             )
+
         elif experiment_data.reward_type == RewardLikelihood.NORMAL:
             arm.mu, arm.sigma = update_arm_params(
                 ArmResponse.model_validate(arm),
-                experiment_data.prior_type,
                 experiment_data.reward_type,
                 rewards,
             )
+
         else:
             raise HTTPException(
                 status_code=400,
                 detail="Reward type not supported.",
             )
-        asession.add(arm)
-        experiment_data.arms[i] = ArmResponse.model_validate(arm)
-        await asession.commit()
 
-    return experiment_data
+        asession.add(arm)
+        arms_data.append(ArmResponse.model_validate(arm))
+
+    experiment.done_final_update = True
+    asession.add(experiment)
+
+    await asession.commit()
+
+    return arms_data

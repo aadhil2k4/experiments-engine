@@ -25,13 +25,15 @@ class ABExperiment(MultiArmedBanditBase):
 
     arms: list[Arm]
     notifications: Notifications
+    done_final_update: bool = False
+    model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
     def arms_exactly_two(self) -> Self:
         """
         Validate that the experiment has exactly two arms.
         """
-        if len(self.arms) == 2:
+        if len(self.arms) != 2:
             raise ValueError("The experiment must have at exactly two arms.")
         return self
 
@@ -101,6 +103,7 @@ class ABExperimentResponse(MultiArmedBanditBase):
     """
 
     experiment_id: int
+    done_final_update: bool
     arms: list[ArmResponse]
     notifications: list[NotificationsResponse]
     created_datetime_utc: datetime
@@ -116,6 +119,7 @@ class ABExperimentSample(MultiArmedBanditBase):
 
     experiment_id: int
     arms: list[ArmResponse]
+    done_final_update: bool
 
 
 class ABExperimentObservation(MABObservation):

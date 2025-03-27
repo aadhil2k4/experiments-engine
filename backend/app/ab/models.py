@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy import (
+    Boolean,
     Float,
     ForeignKey,
     and_,
@@ -32,6 +33,7 @@ class ABExperimentDB(ExperimentBaseDB):
         primary_key=True,
         nullable=False,
     )
+
     arms: Mapped[list["ABArmDB"]] = relationship(
         "ABArmDB", back_populates="experiment", lazy="joined"
     )
@@ -39,6 +41,8 @@ class ABExperimentDB(ExperimentBaseDB):
     observations: Mapped[list["ABObservationDB"]] = relationship(
         "ABObservationDB", back_populates="experiment", lazy="joined"
     )
+
+    done_final_update: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
     __mapper_args__ = {"polymorphic_identity": "ab_experiments"}
 
@@ -57,6 +61,7 @@ class ABExperimentDB(ExperimentBaseDB):
             "arms": [arm.to_dict() for arm in self.arms],
             "prior_type": self.prior_type,
             "reward_type": self.reward_type,
+            "done_final_update": self.done_final_update,
         }
 
 
@@ -147,17 +152,7 @@ async def save_ab_to_db(
     """
     Save the A/B experiment to the database.
     """
-    arms = [
-        ABArmDB(
-            name=arm.name,
-            description=arm.description,
-            alpha=arm.alpha,
-            beta=arm.beta,
-            mu=arm.mu,
-            sigma=arm.sigma,
-        )
-        for arm in ab_experiment.arms
-    ]
+    arms = [ABArmDB(**arm.model_dump(), user_id=user_id) for arm in ab_experiment.arms]
 
     ab_experiment_db = ABExperimentDB(
         user_id=user_id,
@@ -165,6 +160,7 @@ async def save_ab_to_db(
         description=ab_experiment.description,
         created_datetime_utc=datetime.now(timezone.utc),
         is_active=ab_experiment.is_active,
+        done_final_update=False,
         n_trials=0,
         arms=arms,
         prior_type=ab_experiment.prior_type,
