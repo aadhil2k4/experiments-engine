@@ -1,0 +1,8 @@
+# Dependencies
+node_modules
+.next
+dist
+build
+
+# Only format specific directories
+!src/app/

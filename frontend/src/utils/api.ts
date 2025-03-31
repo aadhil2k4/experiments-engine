@@ -26,7 +26,7 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  },
+  }
 );
 
 const getUser = async (token: string) => {

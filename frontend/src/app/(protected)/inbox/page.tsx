@@ -41,7 +41,7 @@ export default function MessagePage() {
     setSelectedMessageIds((prev) =>
       prev.includes(messageId)
         ? prev.filter((id) => id !== messageId)
-        : [...prev, messageId],
+        : [...prev, messageId]
     );
   };
 
@@ -65,7 +65,7 @@ export default function MessagePage() {
       (messages) => {
         const sortedMessages = [...messages].sort(sortMessagesByDate);
         setMessages(sortedMessages);
-      },
+      }
     );
     setSelectedMessageIds([]);
     setSelectedMessage(null);
@@ -167,12 +167,16 @@ export default function MessagePage() {
               </div>
               <div className="min-w-0">
                 <div
-                  className={`${message.is_unread ? "font-bold" : "font-medium"} truncate`}
+                  className={`${
+                    message.is_unread ? "font-bold" : "font-medium"
+                  } truncate`}
                 >
                   {message.title}
                 </div>
                 <p
-                  className={`${message.is_unread ? "font-bold" : "font-medium"} text-sm text-gray-600 truncate`}
+                  className={`${
+                    message.is_unread ? "font-bold" : "font-medium"
+                  } text-sm text-gray-600 truncate`}
                 >
                   {message.text}
                 </p>
@@ -196,7 +200,7 @@ export default function MessagePage() {
               <div className="mt-4">
                 <p className="text-sm text-gray-500 mb-4">
                   {new Date(
-                    selectedMessage.created_datetime_utc,
+                    selectedMessage.created_datetime_utc
                   ).toLocaleString(undefined, {
                     year: "numeric",
                     month: "long",

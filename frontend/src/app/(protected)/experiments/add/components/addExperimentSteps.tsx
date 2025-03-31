@@ -1,5 +1,9 @@
 import { Step } from "../../types";
 import AddMABArms from "./mabs/addMABArms";
+import MABPriorRewardSelection from "./mabs/addPriorReward";
+import AddCMABArms from "./cmabs/addCMABArms";
+import AddCMABContexts from "./cmabs/addCMABContext";
+import CMABPriorRewardSelection from "./cmabs/addPriorReward";
 import AddABArms from "./ab/addABArms";
 import AddNotifications from "./addNotifications";
 
@@ -7,8 +11,30 @@ import AddNotifications from "./addNotifications";
 
 const MABsteps: Step[] = [
   {
+    name: "Configure MAB",
+    component: MABPriorRewardSelection,
+  },
+  {
     name: "Add Arms",
     component: AddMABArms,
+  },
+  { name: "Notifications", component: AddNotifications },
+];
+
+// --- CMAB test types and steps ---
+
+const CMABsteps: Step[] = [
+  {
+    name: "Configure MAB",
+    component: CMABPriorRewardSelection,
+  },
+  {
+    name: "Add Contexts",
+    component: AddCMABContexts,
+  },
+  {
+    name: "Add Arms",
+    component: AddCMABArms,
   },
   { name: "Notifications", component: AddNotifications },
 ];
@@ -25,6 +51,10 @@ const ABsteps: Step[] = [
 
 // --- All steps ---
 
-const AllSteps = { mab: MABsteps, ab: ABsteps };
+const AllSteps = {
+  mab: MABsteps,
+  cmab: CMABsteps,
+  ab: ABsteps,
+};
 
 export { AllSteps };

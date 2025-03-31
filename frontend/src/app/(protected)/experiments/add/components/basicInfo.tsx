@@ -1,3 +1,4 @@
+import { useExperimentStore } from "../../store/useExperimentStore";
 import {
   Field,
   FieldGroup,
@@ -10,61 +11,24 @@ import { Radio, RadioField, RadioGroup } from "@/components/catalyst/radio";
 import { Input } from "@/components/catalyst/input";
 import { Textarea } from "@/components/catalyst/textarea";
 import { AllSteps } from "./addExperimentSteps";
-import { useExperiment } from "./AddExperimentContext";
 import { Heading } from "@/components/catalyst/heading";
-import {
-  MABExperimentState,
-  NewMABArm,
-  NewABArm,
-  ABExperimentState,
-  StepValidation,
-} from "../../types";
+import { StepValidation } from "../../types";
 
 type Methods = typeof AllSteps;
 
 export default function AddBasicInfo({
-  setMethodType,
   onValidate,
 }: {
   setMethodType: (method: keyof Methods) => void;
   onValidate: (validation: StepValidation) => void;
 }) {
-  const { experimentState, setExperimentState } = useExperiment();
+  const { experimentState, updateName, updateDescription, updateMethodType } =
+    useExperimentStore();
   const [errors, setErrors] = useState({
     name: "",
     description: "",
     methodType: "",
   });
-
-  const defaultMABArms: NewMABArm[] = [
-    { name: "", description: "", alpha: 1, beta: 1 },
-    { name: "", description: "", alpha: 1, beta: 1 },
-  ];
-  const defaultABArms: NewABArm[] = [
-    { name: "", description: "", mean_prior: 0, stdDev_prior: 1 },
-    { name: "", description: "", mean_prior: 0, stdDev_prior: 1 },
-  ];
-
-  const methodSelect = (value: keyof Methods) => {
-    setMethodType(value);
-    // TODO: It's not clean to have this component worr about each experiment type,
-    // We should move this elsewhere.
-    setExperimentState((prevState) => {
-      if (value === "mab") {
-        return {
-          ...prevState,
-          methodType: "mab",
-          arms: defaultMABArms,
-        } as MABExperimentState;
-      } else {
-        return {
-          ...prevState,
-          methodType: "ab",
-          arms: defaultABArms,
-        } as ABExperimentState;
-      }
-    });
-  };
 
   const validateForm = useCallback(() => {
     let isValid = true;
@@ -110,10 +74,7 @@ export default function AddBasicInfo({
               placeholder="Give it a name you'll remember"
               value={experimentState.name}
               onChange={(e) => {
-                setExperimentState({
-                  ...experimentState,
-                  name: e.target.value,
-                });
+                updateName(e.target.value);
               }}
             />
             {errors.name ? (
@@ -130,10 +91,7 @@ export default function AddBasicInfo({
               value={experimentState.description}
               rows={3}
               onChange={(e) => {
-                setExperimentState({
-                  ...experimentState,
-                  description: e.target.value,
-                });
+                updateDescription(e.target.value);
               }}
             />
             {errors.description ? (
@@ -147,7 +105,7 @@ export default function AddBasicInfo({
         <RadioGroup
           name="experiment-method"
           value={experimentState.methodType}
-          onChange={(value) => methodSelect(value as keyof Methods)}
+          onChange={(value) => updateMethodType(value as keyof Methods)}
         >
           <Label>Select experiment type</Label>
           <RadioField>
@@ -155,6 +113,14 @@ export default function AddBasicInfo({
             <Label htmlFor="mab">Multi-armed Bandit</Label>
             <Description>
               A method that automatically converges to the best performing arm.
+            </Description>
+          </RadioField>
+          <RadioField>
+            <Radio id="cmab" value="cmab" />
+            <Label htmlFor="cmab">Contextual Bandit</Label>
+            <Description>
+              A method that automatically converges to the best performing arm
+              conditional on context.
             </Description>
           </RadioField>
           <RadioField>

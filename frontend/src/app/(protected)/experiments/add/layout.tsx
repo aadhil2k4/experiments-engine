@@ -1,9 +1,9 @@
-import React from "react";
-import { ExperimentProvider } from "./components/AddExperimentContext";
+import type React from "react";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <ExperimentProvider>{children}</ExperimentProvider>;
+  return <>{children}</>;
 }

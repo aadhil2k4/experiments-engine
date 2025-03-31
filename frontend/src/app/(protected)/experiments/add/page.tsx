@@ -1,9 +1,9 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import { useState, useCallback } from "react";
 import { AllSteps } from "./components/addExperimentSteps";
 import AddBasicInfo from "./components/basicInfo";
-import { useExperiment } from "./components/AddExperimentContext";
+import { useExperimentStore } from "../store/useExperimentStore";
 import { Button } from "@/components/catalyst/button";
 import {
   PlusIcon,
@@ -25,15 +25,24 @@ import { StepComponentProps, StepValidation } from "../types";
 
 export default function NewExperiment() {
   const [currentStep, setCurrentStep] = useState(0);
-  const { experimentState } = useExperiment();
+  const { experimentState, updateMethodType, resetState } =
+    useExperimentStore();
   const [stepValidations, setStepValidations] = useState<StepValidation[]>([]);
   const { token } = useAuth();
   const router = useRouter();
 
   type Methods = typeof AllSteps;
-  const [method, setMethod] = useState<keyof Methods>("mab");
 
-  const steps = AllSteps[method];
+  const [steps, setSteps] = useState(AllSteps[experimentState.methodType]);
+
+  useEffect(() => {
+    setSteps(AllSteps[experimentState.methodType]);
+  }, [experimentState.methodType]);
+
+  useEffect(() => {
+    setSteps(AllSteps[experimentState.methodType]);
+    setCurrentStep(0);
+  }, [experimentState.methodType]);
 
   const nextStep = useCallback(() => {
     const currentValidation = stepValidations[currentStep];
@@ -63,6 +72,7 @@ export default function NewExperiment() {
     } else {
       console.log("Cannot proceed. Please check all steps for errors.");
     }
+    resetState();
   };
   const handleStepValidation = useCallback(
     (stepIndex: number, validation: StepValidation) => {
@@ -72,7 +82,7 @@ export default function NewExperiment() {
         return newValidations;
       });
     },
-    [],
+    []
   );
 
   return (
@@ -123,7 +133,9 @@ export default function NewExperiment() {
         </div>
         {currentStep === 0 ? (
           <AddBasicInfo
-            setMethodType={(method) => setMethod(method as keyof Methods)}
+            setMethodType={(method) =>
+              updateMethodType(method as keyof Methods)
+            }
             onValidate={(validation: StepValidation) =>
               handleStepValidation(currentStep, validation)
             }

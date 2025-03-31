@@ -108,7 +108,7 @@ export function ApiKeyDisplay() {
         </Button>
       </div>
 
-      <Dialog open={isModalOpen} onClose={() => {}}>
+      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <DialogBody>
           <DialogTitle>New API Key Generated</DialogTitle>
           <DialogDescription>

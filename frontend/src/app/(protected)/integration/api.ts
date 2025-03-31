@@ -17,7 +17,7 @@ const rotateAPIKey = async (token: string | null) => {
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    },
+    }
   );
   return response.data;
 };

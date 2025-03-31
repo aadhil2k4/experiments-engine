@@ -1,27 +1,42 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import EmptyPage from "./components/EmptyPage";
-import { getAllMABExperiments } from "./api";
-import { MAB } from "./types";
+import { getAllMABExperiments, getAllCMABExperiments } from "./api";
+import { MABBeta, MABNormal, CMAB, MethodType } from "./types";
 import ExperimentCard from "./components/ExperimentCard";
 import Hourglass from "@/components/Hourglass";
 import FloatingAddButton from "./components/FloatingAddButton";
 import { Link } from "@/components/catalyst/link";
 import { useAuth } from "@/utils/auth";
+import { DividerWithTitle } from "@/components/Dividers";
 
 export default function Experiments() {
-  const [experiments, setExperiments] = React.useState<MAB[]>([]);
+  const [haveExperiments, setHaveExperiments] = React.useState(false);
+  const [mabExperiments, setMABExperiments] = React.useState<MABBeta[]>([]);
+  const [cmabExperiments, setCMABExperiments] = React.useState<CMAB[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const { token } = useAuth();
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!token) return;
     setLoading(true);
-    getAllMABExperiments(token!).then((data) => {
-      setExperiments(data);
+    getAllMABExperiments(token).then((data) => {
+      setMABExperiments(data);
+    });
+    getAllCMABExperiments(token).then((data) => {
+      setCMABExperiments(data);
     });
     setLoading(false);
   }, [token]);
+
+  useEffect(() => {
+    if (mabExperiments.length > 0 || cmabExperiments.length > 0) {
+      setHaveExperiments(true);
+    } else {
+      setHaveExperiments(false);
+    }
+  }, [mabExperiments, cmabExperiments]);
 
   return loading ? (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
@@ -30,9 +45,32 @@ export default function Experiments() {
         <span className="text-primary font-medium text-center">Loading...</span>
       </div>
     </div>
-  ) : experiments.length > 0 ? (
-    <div className="min-h-screen ">
-      <ExperimentCardGrid experiments={experiments} />
+  ) : haveExperiments ? (
+    <div className="flex flex-col space-y-8">
+      {mabExperiments.length > 0 && (
+        <div>
+          <DividerWithTitle title="Multi-Armed Bandit Experiments" />
+          <div className="my-4"></div>
+          <div>
+            <ExperimentCardGrid experiments={mabExperiments} methodType="mab" />
+          </div>
+        </div>
+      )}
+      {cmabExperiments.length > 0 && (
+        <div>
+          <DividerWithTitle title="Contextual Multi-Armed Bandit Experiments" />
+          <div className="my-4"></div>
+          <div>
+            <ExperimentCardGrid
+              experiments={cmabExperiments}
+              methodType="cmab"
+            />
+            <Link href="/experiments/add">
+              <FloatingAddButton />
+            </Link>
+          </div>
+        </div>
+      )}
       <Link href="/experiments/add">
         <FloatingAddButton />
       </Link>
@@ -51,7 +89,13 @@ export default function Experiments() {
   );
 }
 
-const ExperimentCardGrid = ({ experiments }: { experiments: MAB[] }) => {
+const ExperimentCardGrid = ({
+  experiments,
+  methodType,
+}: {
+  experiments: MABBeta[] | MABNormal[] | CMAB[];
+  methodType: MethodType;
+}) => {
   return (
     <ul
       role="list"
@@ -59,7 +103,7 @@ const ExperimentCardGrid = ({ experiments }: { experiments: MAB[] }) => {
     >
       {experiments.map((experiment) => (
         <li key={experiment.experiment_id}>
-          <ExperimentCard experiment={experiment} />
+          <ExperimentCard experiment={experiment} methodType={methodType} />
         </li>
       ))}
     </ul>

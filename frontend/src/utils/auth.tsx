@@ -101,7 +101,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
           setUser(username);
           setToken(access_token);
           router.push(sourcePage);
-        },
+        }
       )
       .catch((error: Error) => {
         setLoginError("Invalid Google credentials");
