@@ -1,11 +1,12 @@
 "use client";
 import { apiCalls } from "@/utils/api";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ReactNode, createContext, useContext, useState } from "react";
+import { ReactNode, createContext, useContext, useState, useEffect } from "react";
 
 type AuthContextType = {
   token: string | null;
   user: string | null;
+  isVerified: boolean;
   login: (username: string, password: string) => void;
   logout: () => void;
   loginError: string | null;
@@ -25,7 +26,6 @@ type AuthProviderProps = {
 };
 
 const AuthProvider = ({ children }: AuthProviderProps) => {
-
   const getInitialToken = () => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("ee-token");
@@ -42,10 +42,28 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const [user, setUser] = useState<string | null>(getInitialUsername);
   const [token, setToken] = useState<string | null>(getInitialToken);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Check verification status on init if token exists
+  useEffect(() => {
+    const checkVerificationStatus = async () => {
+      const currentToken = getInitialToken();
+      if (currentToken) {
+        try {
+          const userData = await apiCalls.getUser(currentToken);
+          setIsVerified(userData.is_verified);
+        } catch (error) {
+          console.error("Error fetching user verification status:", error);
+        }
+      }
+    };
+
+    checkVerificationStatus();
+  }, []);
 
   const login = async (username: string, password: string) => {
     const sourcePage = searchParams.has("sourcePage")
@@ -53,14 +71,35 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       : "/";
 
     try {
-      const { access_token } = await apiCalls.getLoginToken(username, password);
+      const response = await apiCalls.getLoginToken(username, password);
+      const { access_token } = response;
+
       localStorage.setItem("ee-token", access_token);
       localStorage.setItem("ee-username", username);
 
       setUser(username);
       setToken(access_token);
       setLoginError(null);
-      router.push(sourcePage);
+
+      // Check if verification status is in the response
+      if (response.is_verified !== undefined) {
+        setIsVerified(response.is_verified);
+      } else {
+        // If not in response, fetch user data to get verification status
+        try {
+          const userData = await apiCalls.getUser(access_token);
+          setIsVerified(userData.is_verified);
+        } catch (error) {
+          console.error("Error fetching user verification status:", error);
+        }
+      }
+
+      // Redirect to verification page if not verified, otherwise to original destination
+      if (response.is_verified === false) {
+        router.push("/verification-required");
+      } else {
+        router.push(sourcePage);
+      }
     } catch (error: unknown) {
       if (
         error &&
@@ -86,27 +125,27 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       ? decodeURIComponent(searchParams.get("sourcePage") as string)
       : "/";
 
-    apiCalls
-      .getGoogleLoginToken({ client_id: client_id, credential: credential })
-      .then(
-        ({
-          access_token,
-          username,
-        }: {
-          access_token: string;
-          username: string;
-        }) => {
-          localStorage.setItem("ee-token", access_token);
-          localStorage.setItem("ee-username", username);
-          setUser(username);
-          setToken(access_token);
-          router.push(sourcePage);
-        }
-      )
-      .catch((error: Error) => {
-        setLoginError("Invalid Google credentials");
-        console.error("Google login error:", error);
+    try {
+      const response = await apiCalls.getGoogleLoginToken({
+        client_id: client_id,
+        credential: credential
       });
+
+      const { access_token, username } = response;
+
+      localStorage.setItem("ee-token", access_token);
+      localStorage.setItem("ee-username", username);
+
+      setUser(username);
+      setToken(access_token);
+
+      setIsVerified(true);
+
+      router.push(sourcePage);
+    } catch (error) {
+      setLoginError("Invalid Google credentials");
+      console.error("Google login error:", error);
+    }
   };
 
   const logout = () => {
@@ -115,16 +154,18 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem("ee-username");
     setUser(null);
     setToken(null);
+    setIsVerified(false);
     router.push("/login");
   };
 
   const authValue: AuthContextType = {
-    token: token,
-    user: user,
-    login: login,
-    loginError: loginError,
-    loginGoogle: loginGoogle,
-    logout: logout,
+    token,
+    user,
+    isVerified,
+    login,
+    loginError,
+    loginGoogle,
+    logout,
   };
 
   return (
@@ -140,4 +181,17 @@ export const useAuth = () => {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+};
+
+export const useRequireVerified = () => {
+  const { token, isVerified } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (token && !isVerified) {
+      router.push("/verification-required");
+    }
+  }, [token, isVerified, router]);
+
+  return { token, isVerified };
 };

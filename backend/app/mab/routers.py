@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import authenticate_key, get_current_user
+from ..auth.dependencies import authenticate_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, Outcome, RewardLikelihood
@@ -33,7 +33,7 @@ router = APIRouter(prefix="/mab", tags=["Multi-Armed Bandits"])
 @router.post("/", response_model=MultiArmedBanditResponse)
 async def create_mab(
     experiment: MultiArmedBandit,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> MultiArmedBanditResponse:
     """
@@ -55,7 +55,7 @@ async def create_mab(
 
 @router.get("/", response_model=list[MultiArmedBanditResponse])
 async def get_mabs(
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[MultiArmedBanditResponse]:
     """
@@ -88,7 +88,7 @@ async def get_mabs(
 @router.get("/{experiment_id}", response_model=MultiArmedBanditResponse)
 async def get_mab(
     experiment_id: int,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> MultiArmedBanditResponse:
     """
@@ -115,7 +115,7 @@ async def get_mab(
 @router.delete("/{experiment_id}", response_model=dict)
 async def delete_mab(
     experiment_id: int,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> dict:
     """

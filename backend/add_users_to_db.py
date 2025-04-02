@@ -36,6 +36,8 @@ user_db = UserDB(
     api_daily_quota=ADMIN_API_DAILY_QUOTA,
     created_datetime_utc=datetime.now(timezone.utc),
     updated_datetime_utc=datetime.now(timezone.utc),
+    is_active=True,
+    is_verified=True,
 )
 
 
