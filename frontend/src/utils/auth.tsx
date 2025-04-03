@@ -7,6 +7,7 @@ type AuthContextType = {
   token: string | null;
   user: string | null;
   isVerified: boolean;
+  isLoading: boolean;
   login: (username: string, password: string) => void;
   logout: () => void;
   loginError: string | null;
@@ -43,6 +44,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<string | null>(getInitialUsername);
   const [token, setToken] = useState<string | null>(getInitialToken);
   const [isVerified, setIsVerified] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(!!getInitialToken());
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
@@ -53,11 +55,15 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     const checkVerificationStatus = async () => {
       const currentToken = getInitialToken();
       if (currentToken) {
+        setIsLoading(true);
         try {
           const userData = await apiCalls.getUser(currentToken);
           setIsVerified(userData.is_verified);
         } catch (error) {
           console.error("Error fetching user verification status:", error);
+          logout();
+        } finally {
+          setIsLoading(false);
         }
       }
     };
@@ -71,6 +77,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       : "/";
 
     try {
+      setIsLoading(true);
       const response = await apiCalls.getLoginToken(username, password);
       const { access_token } = response;
 
@@ -111,6 +118,8 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       } else {
         setLoginError("An unexpected error occurred. Please try again later.");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -126,6 +135,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       : "/";
 
     try {
+      setIsLoading(true);
       const response = await apiCalls.getGoogleLoginToken({
         client_id: client_id,
         credential: credential
@@ -145,6 +155,8 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     } catch (error) {
       setLoginError("Invalid Google credentials");
       console.error("Google login error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -162,6 +174,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     token,
     user,
     isVerified,
+    isLoading,
     login,
     loginError,
     loginGoogle,
@@ -184,14 +197,14 @@ export const useAuth = () => {
 };
 
 export const useRequireVerified = () => {
-  const { token, isVerified } = useAuth();
+  const { token, isVerified, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (token && !isVerified) {
+    if (!isLoading && token && !isVerified) {
       router.push("/verification-required");
     }
-  }, [token, isVerified, router]);
+  }, [token, isVerified, isLoading, router]);
 
-  return { token, isVerified };
+  return { token, isVerified, isLoading };
 };

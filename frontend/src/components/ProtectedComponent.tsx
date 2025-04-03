@@ -13,27 +13,28 @@ const ProtectedComponent: React.FC<ProtectedComponentProps> = ({
   requireVerified = true,
 }) => {
   const router = useRouter();
-  const { token, isVerified } = useAuth();
+  const { token, isVerified, isLoading } = useAuth();
   const pathname = usePathname();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      router.push("/login?sourcePage=" + encodeURIComponent(pathname));
-      return;
-    }
-
-    if (requireVerified && !isVerified) {
-      router.push("/verification-required");
-    }
-  }, [token, isVerified, requireVerified, pathname, router]);
-
-  // This is to prevent the page from starting to load the children before the token is checked
-  useEffect(() => {
     setIsClient(true);
   }, []);
 
-  if (!token || (requireVerified && !isVerified) || !isClient) {
+  useEffect(() => {
+    if (isClient && !isLoading) {
+      if (!token) {
+        router.push("/login?sourcePage=" + encodeURIComponent(pathname));
+        return;
+      }
+
+      if (requireVerified && !isVerified) {
+        router.push("/verification-required");
+      }
+    }
+  }, [token, isVerified, isLoading, requireVerified, pathname, router, isClient]);
+
+  if (!isClient || isLoading || !token || (requireVerified && !isVerified)) {
     return null;
   } else {
     return <>{children}</>;
