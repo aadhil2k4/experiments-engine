@@ -249,6 +249,7 @@ async def update_arm(
         # Update the arm in the database
         arm.mu = mu.tolist()
         arm.covariance = covariance.tolist()
+        arm.n_outcomes += 1
         asession.add(arm)
         await asession.commit()
 

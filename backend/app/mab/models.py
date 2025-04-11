@@ -4,7 +4,6 @@ from typing import Sequence
 from sqlalchemy import (
     Float,
     ForeignKey,
-    Integer,
     and_,
     delete,
     select,
@@ -79,7 +78,6 @@ class MABArmDB(ArmBaseDB):
     beta: Mapped[float] = mapped_column(Float, nullable=True)
     mu: Mapped[float] = mapped_column(Float, nullable=True)
     sigma: Mapped[float] = mapped_column(Float, nullable=True)
-    n_outcomes: Mapped[int] = mapped_column(Integer, nullable=False)
     experiment: Mapped[MultiArmedBanditDB] = relationship(
         "MultiArmedBanditDB", back_populates="arms", lazy="joined"
     )

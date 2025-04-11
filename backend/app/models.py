@@ -71,6 +71,7 @@ class ArmBaseDB(Base):
     name: Mapped[str] = mapped_column(String(length=150), nullable=False)
     description: Mapped[str] = mapped_column(String(length=500), nullable=False)
     arm_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
+    n_outcomes: Mapped[int] = mapped_column(Integer, nullable=False)
 
     __mapper_args__ = {
         "polymorphic_identity": "arm",
