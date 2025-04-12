@@ -36,6 +36,11 @@ class BayesABArm(BaseModel):
         description="Number of outcomes for the arm",
         examples=[0, 10, 15],
     )
+    is_treatment_arm: bool = Field(
+        default=True,
+        description="Is the arm a treatment arm",
+        examples=[True, False],
+    )
 
     @model_validator(mode="after")
     def check_values(self) -> Self:
@@ -85,6 +90,15 @@ class BayesianAB(MultiArmedBanditBase):
 
         if (self.prior_type, self.reward_type) not in allowed_combos_bayes_ab:
             raise ValueError("Prior and reward type combo not supported.")
+        return self
+
+    @model_validator(mode="after")
+    def check_treatment_and_control_arm(self) -> Self:
+        """
+        Validate that the experiment has at least one control arm.
+        """
+        if sum(arm.is_treatment_arm for arm in self.arms) != 1:
+            raise ValueError("The experiment must have one treatment and control arm.")
         return self
 
 
