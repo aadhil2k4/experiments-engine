@@ -8,8 +8,8 @@ from .schemas import BayesianABSample
 def _update_arms(
     mus: np.ndarray,
     sigmas: np.ndarray,
-    rewards: list[float],
-    treatments: list[float],
+    rewards: np.ndarray,
+    treatments: np.ndarray,
     link_function: ContextLinkFunctions,
     reward_likelihood: RewardLikelihood,
     prior_type: ArmPriors,
@@ -19,13 +19,13 @@ def _update_arms(
 
     Parameters
     ----------
-    mu : float
+    mu : np.ndarray
         The mean of the Normal distribution.
-    sigma : float
+    sigma : np.ndarray
         The standard deviation of the Normal distribution.
-    rewards : list[float]
+    rewards : np.ndarray
         The rewards.
-    treatments : list[float]
+    treatments : np.ndarray
         The treatments (binary-valued).
     link_function : ContextLinkFunctions
         The link function for parameters to rewards.
@@ -55,18 +55,14 @@ def _update_arms(
         # log likelihood
         log_likelihood = reward_likelihood(
             rewards,
-            link_function(
-                treatment * np.array(treatments)
-                + control * (1 - np.array(treatments))
-                + bias
-            ),
+            link_function(treatment * treatments + control * (1 - treatments) + bias),
         )
         return -(log_prior + log_likelihood)
 
-    result = minimize(objective, x0=np.zeros(2), method="L-BFGS-B", hess="2-point")
-    new_treatment_mean, new_control_mean, bias = result.x
+    result = minimize(objective, x0=np.zeros(3), method="L-BFGS-B", hess="2-point")
+    new_treatment_mean, new_control_mean, _ = result.x
     new_treatment_sigma, new_control_sigma, _ = np.sqrt(
-        np.diag(result.hess_inv.todense())
+        np.diag(result.hess_inv.todense())  # type: ignore
     )
     return [new_treatment_mean, new_control_mean], [
         new_treatment_sigma,
@@ -83,7 +79,8 @@ def choose_arm(experiment: BayesianABSample) -> int:
     experiment : BayesianABSample
         The experiment data containing priors and rewards for each arm.
     """
-    return np.random.choice(len(experiment.arms), size=1)
+    index = np.random.choice(len(experiment.arms), size=1)
+    return int(index[0])
 
 
 def update_arm_params(
@@ -113,10 +110,10 @@ def update_arm_params(
         raise ValueError("Invalid reward type")
 
     return _update_arms(
-        mus=[arm.mu for arm in experiment.arms],
-        sigmas=[arm.sigma for arm in experiment.arms],
-        rewards=rewards,
-        treatments=treatments,
+        mus=np.array([arm.mu for arm in experiment.arms]),
+        sigmas=np.array([arm.sigma for arm in experiment.arms]),
+        rewards=np.array(rewards),
+        treatments=np.array(treatments),
         link_function=link_function,
         reward_likelihood=experiment.reward_type,
         prior_type=experiment.prior_type,
