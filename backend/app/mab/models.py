@@ -156,7 +156,13 @@ async def save_mab_to_db(
     """
     arms = [
         MABArmDB(
-            **arm.model_dump(),
+            name=arm.name,
+            description=arm.description,
+            alpha_init=arm.alpha_init,
+            beta_init=arm.beta_init,
+            mu_init=arm.mu_init,
+            sigma_init=arm.sigma_init,
+            n_outcomes=arm.n_outcomes,
             alpha=arm.alpha_init,
             beta=arm.beta_init,
             mu=arm.mu_init,

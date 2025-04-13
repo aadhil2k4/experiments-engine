@@ -218,6 +218,7 @@ async def save_contextual_mab_to_db(
                     np.identity(len(experiment.contexts)) * arm.sigma_init
                 ).tolist(),
                 user_id=user_id,
+                n_outcomes=arm.n_outcomes,
             )
         )
 
@@ -289,7 +290,6 @@ async def delete_contextual_mab_by_id(
     await asession.execute(
         delete(ContextualObservationDB).where(
             and_(
-                ContextualObservationDB.user_id == ObservationsBaseDB.user_id,
                 ContextualObservationDB.user_id == user_id,
                 ContextualObservationDB.experiment_id == experiment_id,
             )
@@ -305,7 +305,6 @@ async def delete_contextual_mab_by_id(
     await asession.execute(
         delete(ContextualArmDB).where(
             and_(
-                ContextualArmDB.experiment_id == ExperimentBaseDB.experiment_id,
                 ContextualArmDB.user_id == user_id,
                 ContextualArmDB.experiment_id == experiment_id,
             )
@@ -315,7 +314,6 @@ async def delete_contextual_mab_by_id(
     await asession.execute(
         delete(ContextualBanditDB).where(
             and_(
-                ContextualBanditDB.experiment_id == ExperimentBaseDB.experiment_id,
                 ContextualBanditDB.user_id == user_id,
                 ContextualBanditDB.experiment_id == experiment_id,
             )

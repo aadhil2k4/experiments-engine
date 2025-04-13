@@ -68,7 +68,7 @@ def clean_cmabs(db_session: Session) -> Generator:
     db_session.commit()
 
 
-class TestMab:
+class TestCMab:
     @fixture
     def create_cmab_payload(self, request: FixtureRequest) -> dict:
         payload_normal: dict = copy.deepcopy(base_normal_payload)
