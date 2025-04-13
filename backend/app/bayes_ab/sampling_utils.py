@@ -85,6 +85,8 @@ def choose_arm(experiment: BayesianABSample) -> int:
 
 def update_arm_params(
     experiment: BayesianABSample,
+    mus: list[float],
+    sigmas: list[float],
     rewards: list[float],
     treatments: list[float],
 ) -> tuple[list, list]:
@@ -96,6 +98,10 @@ def update_arm_params(
     experiment : BayesianABSample
         The experiment data containing arms, prior type and reward
         type information.
+    mus : list[float]
+        The means of the arms.
+    sigmas : list[float]
+        The standard deviations of the arms.
     rewards : list[float]
         The rewards.
     treatments : list[float]
@@ -110,8 +116,8 @@ def update_arm_params(
         raise ValueError("Invalid reward type")
 
     return _update_arms(
-        mus=np.array([arm.mu for arm in experiment.arms]),
-        sigmas=np.array([arm.sigma for arm in experiment.arms]),
+        mus=np.array(mus),
+        sigmas=np.array(sigmas),
         rewards=np.array(rewards),
         treatments=np.array(treatments),
         link_function=link_function,

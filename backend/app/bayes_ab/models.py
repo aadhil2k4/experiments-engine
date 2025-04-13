@@ -42,8 +42,6 @@ class BayesianABDB(ExperimentBaseDB):
         "BayesianABObservationDB", back_populates="experiment", lazy="joined"
     )
 
-    done_final_update: Mapped[bool] = mapped_column(Boolean, nullable=False)
-
     __mapper_args__ = {"polymorphic_identity": "bayes_ab_experiments"}
 
     def to_dict(self) -> dict:
@@ -61,7 +59,6 @@ class BayesianABDB(ExperimentBaseDB):
             "arms": [arm.to_dict() for arm in self.arms],
             "prior_type": self.prior_type,
             "reward_type": self.reward_type,
-            "done_final_update": self.done_final_update,
         }
 
 
@@ -79,8 +76,10 @@ class BayesianABArmDB(ArmBaseDB):
     )
 
     # prior variables for AB arms
-    mu: Mapped[float] = mapped_column(Float, nullable=True)
-    sigma: Mapped[float] = mapped_column(Float, nullable=True)
+    mu_init: Mapped[float] = mapped_column(Float, nullable=False)
+    sigma_init: Mapped[float] = mapped_column(Float, nullable=False)
+    mu: Mapped[float] = mapped_column(Float, nullable=False)
+    sigma: Mapped[float] = mapped_column(Float, nullable=False)
     is_treatment_arm: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
@@ -102,6 +101,8 @@ class BayesianABArmDB(ArmBaseDB):
             "arm_id": self.arm_id,
             "name": self.name,
             "description": self.description,
+            "mu_init": self.mu_init,
+            "sigma_init": self.sigma_init,
             "mu": self.mu,
             "sigma": self.sigma,
             "is_treatment_arm": self.is_treatment_arm,
@@ -144,7 +145,7 @@ class BayesianABObservationDB(ObservationsBaseDB):
         }
 
 
-async def save_ab_to_db(
+async def save_bayes_ab_to_db(
     ab_experiment: BayesianAB,
     user_id: int,
     asession: AsyncSession,
@@ -153,7 +154,9 @@ async def save_ab_to_db(
     Save the A/B experiment to the database.
     """
     arms = [
-        BayesianABArmDB(**arm.model_dump(), user_id=user_id)
+        BayesianABArmDB(
+            **arm.model_dump(), mu=arm.mu_init, sigma=arm.sigma_init, user_id=user_id
+        )
         for arm in ab_experiment.arms
     ]
 
@@ -163,7 +166,6 @@ async def save_ab_to_db(
         description=ab_experiment.description,
         created_datetime_utc=datetime.now(timezone.utc),
         is_active=ab_experiment.is_active,
-        done_final_update=False,
         n_trials=0,
         arms=arms,
         prior_type=ab_experiment.prior_type,
@@ -193,7 +195,7 @@ async def get_all_bayes_ab_experiments(
     return result.unique().scalars().all()
 
 
-async def get_ab_experiment_by_id(
+async def get_bayes_ab_experiment_by_id(
     experiment_id: int,
     user_id: int,
     asession: AsyncSession,
@@ -211,7 +213,7 @@ async def get_ab_experiment_by_id(
     return result.unique().scalar_one_or_none()
 
 
-async def delete_ab_experiment_by_id(
+async def delete_bayes_ab_experiment_by_id(
     experiment_id: int,
     user_id: int,
     asession: AsyncSession,
@@ -255,7 +257,7 @@ async def delete_ab_experiment_by_id(
     return None
 
 
-async def save_ab_observation_to_db(
+async def save_bayes_ab_observation_to_db(
     ab_observation: BayesianABObservation,
     user_id: int,
     asession: AsyncSession,
@@ -276,7 +278,7 @@ async def save_ab_observation_to_db(
     return ab_observation_db
 
 
-async def get_ab_observations_by_experiment_arm_id(
+async def get_bayes_ab_observations_by_experiment_arm_id(
     experiment_id: int,
     arm_id: int,
     user_id: int,
@@ -301,7 +303,7 @@ async def get_ab_observations_by_experiment_arm_id(
     return result.unique().scalars().all()
 
 
-async def get_ab_observations_by_experiment_id(
+async def get_bayes_ab_observations_by_experiment_id(
     experiment_id: int,
     user_id: int,
     asession: AsyncSession,

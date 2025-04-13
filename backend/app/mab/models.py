@@ -78,6 +78,10 @@ class MABArmDB(ArmBaseDB):
     beta: Mapped[float] = mapped_column(Float, nullable=True)
     mu: Mapped[float] = mapped_column(Float, nullable=True)
     sigma: Mapped[float] = mapped_column(Float, nullable=True)
+    alpha_init: Mapped[float] = mapped_column(Float, nullable=True)
+    beta_init: Mapped[float] = mapped_column(Float, nullable=True)
+    mu_init: Mapped[float] = mapped_column(Float, nullable=True)
+    sigma_init: Mapped[float] = mapped_column(Float, nullable=True)
     experiment: Mapped[MultiArmedBanditDB] = relationship(
         "MultiArmedBanditDB", back_populates="arms", lazy="joined"
     )
@@ -100,6 +104,10 @@ class MABArmDB(ArmBaseDB):
             "beta": self.beta,
             "mu": self.mu,
             "sigma": self.sigma,
+            "alpha_init": self.alpha_init,
+            "beta_init": self.beta_init,
+            "mu_init": self.mu_init,
+            "sigma_init": self.sigma_init,
             "observations": [obs.to_dict() for obs in self.observations],
         }
 
@@ -149,6 +157,10 @@ async def save_mab_to_db(
     arms = [
         MABArmDB(
             **arm.model_dump(),
+            alpha=arm.alpha_init,
+            beta=arm.beta_init,
+            mu=arm.mu_init,
+            sigma=arm.sigma_init,
             user_id=user_id,
         )
         for arm in experiment.arms

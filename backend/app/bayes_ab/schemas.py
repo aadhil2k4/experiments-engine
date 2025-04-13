@@ -25,10 +25,10 @@ class BayesABArm(BaseModel):
         examples=["This is a description of the arm."],
     )
 
-    mu: float = Field(
+    mu_init: float = Field(
         default=0.0, description="Mean parameter for treatment effect prior"
     )
-    sigma: float = Field(
+    sigma_init: float = Field(
         default=1.0, description="Std dev parameter for treatment effect prior"
     )
     n_outcomes: Optional[int] = Field(
@@ -60,6 +60,8 @@ class BayesABArmResponse(BayesABArm):
     """
 
     arm_id: int
+    mu: float
+    sigma: float
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -70,7 +72,6 @@ class BayesianAB(MultiArmedBanditBase):
 
     arms: list[BayesABArm]
     notifications: Notifications
-    done_final_update: bool = False
     model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
@@ -108,7 +109,6 @@ class BayesianABResponse(MultiArmedBanditBase):
     """
 
     experiment_id: int
-    done_final_update: bool
     arms: list[BayesABArmResponse]
     notifications: list[NotificationsResponse]
     created_datetime_utc: datetime
@@ -125,7 +125,6 @@ class BayesianABSample(MultiArmedBanditBase):
 
     experiment_id: int
     arms: list[BayesABArmResponse]
-    done_final_update: bool
 
 
 class BayesianABObservation(MABObservation):
