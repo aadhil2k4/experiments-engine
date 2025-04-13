@@ -35,7 +35,7 @@ class BayesianABDB(ExperimentBaseDB):
     )
 
     arms: Mapped[list["BayesianABArmDB"]] = relationship(
-        "BayesianABArmDB", back_populates="experiment", lazy="joined"
+        "BayesianABArmDB", back_populates="experiment", lazy="selectin"
     )
 
     observations: Mapped[list["BayesianABObservationDB"]] = relationship(
@@ -155,7 +155,15 @@ async def save_bayes_ab_to_db(
     """
     arms = [
         BayesianABArmDB(
-            **arm.model_dump(), mu=arm.mu_init, sigma=arm.sigma_init, user_id=user_id
+            name=arm.name,
+            description=arm.description,
+            mu_init=arm.mu_init,
+            sigma_init=arm.sigma_init,
+            n_outcomes=0,
+            is_treatment_arm=arm.is_treatment_arm,
+            mu=arm.mu_init,
+            sigma=arm.sigma_init,
+            user_id=user_id,
         )
         for arm in ab_experiment.arms
     ]

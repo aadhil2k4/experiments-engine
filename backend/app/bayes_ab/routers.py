@@ -283,7 +283,7 @@ async def update_arms(
         for arm in experiment.arms
         if not arm.is_treatment_arm
     ][0]
-    treatments = [arms_dict[arm.arm_id] for arm in experiment.arms]
+    treatments = [arms_dict[obs.arm_id] for obs in observations]
 
     new_means, new_sigmas = update_arm_params(
         experiment=experiment_data,
