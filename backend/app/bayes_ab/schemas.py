@@ -47,7 +47,7 @@ class BayesABArm(BaseModel):
         """
         Check if the values are unique and set new attributes.
         """
-        if self.sigma is not None and self.sigma <= 0:
+        if self.sigma_init is not None and self.sigma_init <= 0:
             raise ValueError("Std dev must be greater than 0.")
         return self
 
