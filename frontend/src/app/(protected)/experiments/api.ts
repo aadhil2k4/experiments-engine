@@ -94,7 +94,6 @@ const getAllCMABExperiments = async (token: string | null) => {
   }
 };
 
-
 const getAllBayesianABExperiments = async (token: string | null) => {
   try {
     const response = await api.get("/bayes_ab/", {
@@ -141,5 +140,6 @@ export {
   createNewExperiment,
   getAllMABExperiments,
   getAllCMABExperiments,
+  getAllBayesianABExperiments,
   getMABExperimentById,
 };
