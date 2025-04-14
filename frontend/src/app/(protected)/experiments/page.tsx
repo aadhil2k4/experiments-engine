@@ -43,9 +43,6 @@ export default function Experiments() {
   }, [token]);
 
   useEffect(() => {
-    console.log("MAB experiments length", mabExperiments.length);
-    console.log("MAB Experiments:", mabExperiments);
-    console.log("have experiments:", haveExperiments);
     if (mabExperiments.length > 0 || cmabExperiments.length > 0) {
       setHaveExperiments(true);
     } else {

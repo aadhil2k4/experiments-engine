@@ -1,6 +1,6 @@
 import {
   useExperimentStore,
-  isMABExperimentStateNormal,
+  isBayesianABState,
 } from "../../../store/useExperimentStore";
 import {
   Field,
@@ -12,11 +12,9 @@ import { Button } from "@/components/catalyst/button";
 import { Input } from "@/components/catalyst/input";
 import { Textarea } from "@/components/catalyst/textarea";
 import {
-  NewMABArmNormal,
-  NewMABArmBeta,
+  NewBayesianABArm,
   StepComponentProps,
-  // MABArmBeta,
-  // MABArmNormal,
+  BayesianABArm
 } from "../../../types";
 import { PlusIcon } from "@heroicons/react/16/solid";
 import { DividerWithTitle } from "@/components/Dividers";
@@ -24,7 +22,7 @@ import { TrashIcon } from "@heroicons/react/16/solid";
 import { Heading } from "@/components/catalyst/heading";
 import { useCallback, useEffect, useState, useMemo } from "react";
 
-export default function AddMABArms({ onValidate }: StepComponentProps) {
+export default function AddBayesABArms({ onValidate }: StepComponentProps) {
   const { experimentState, updateArm, addArm, removeArm } =
     useExperimentStore();
 
@@ -39,10 +37,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
   );
 
   const additionalArmErrors = useMemo(
-    () =>
-      experimentState.prior_type === "beta"
-        ? { alpha_init: "", beta_init: "" }
-        : { mu_init: "", sigma_init: "" },
+    () => ({ mu_init: "", sigma_init: "" }),
     [experimentState]
   );
 
@@ -71,29 +66,6 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
       }
 
       if (experimentState.prior_type === "beta") {
-        if ("alpha_init" in arm) {
-          if (!arm.alpha_init) {
-            newErrors[index].alpha_init = "Alpha prior is required";
-            isValid = false;
-          }
-          if (arm.alpha_init <= 0) {
-            newErrors[index].alpha_init = "Alpha prior should be greater than 0";
-            isValid = false;
-          }
-        }
-
-        if ("beta_init" in arm) {
-          if (!arm.beta_init) {
-            newErrors[index].beta_init = "Beta prior is required";
-            isValid = false;
-          }
-
-          if (arm.beta_init <= 0) {
-            newErrors[index].beta_init = "Beta prior should be greater than 0";
-            isValid = false;
-          }
-        }
-      } else if (experimentState.prior_type === "normal") {
         if ("mu_init" in arm && typeof arm.mu_init !== "number") {
           newErrors[index].mu_init = "Mean value is required";
           isValid = false;
@@ -133,10 +105,10 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
   useEffect(() => {
     const newInputValues: Record<string, string> = {};
 
-    if (isMABExperimentStateNormal(experimentState)) {
+    if (isBayesianABState(experimentState)) {
       experimentState.arms.forEach((arm, index) => {
         newInputValues[`${index}-mu`] = (
-          (arm as NewMABArmNormal).mu_init || 0
+          (arm as BayesianABArm).mu_init || 0
         ).toString();
       });
     }
@@ -161,9 +133,9 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
   return (
     <div>
       <div className="flex w-full flex-wrap items-end justify-between gap-4 border-b border-zinc-950/10 pb-6 dark:border-white/10">
-        <Heading>Add MAB Arms</Heading>
+        <Heading>Add Bayesian A/B Arms</Heading>
         <div className="flex gap-4">
-          <Button className="mt-4" onClick={addArm}>
+          <Button className="mt-4" onClick={addArm} disabled={experimentState.arms.length >= 2}>
             <PlusIcon className="w-4 h-4 mr-2" />
             Add Arm
           </Button>
@@ -180,10 +152,11 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
           </Button>
         </div>
       </div>
-      <Fieldset aria-label="Add MAB Arms">
+      <Fieldset aria-label="Add Bayesian AB Arms">
         {experimentState.arms.map((arm, index) => (
           <div key={index}>
-            <DividerWithTitle title={`Arm ${index + 1}`} />
+            <DividerWithTitle title={index === 0? `Treatment Arm` : "Control Arm"} />
+            <div className="mb-4"></div>
             <FieldGroup
               key={index}
               className="md:flex md:flex-row md:space-x-8 md:space-y-0 items-start"
@@ -197,9 +170,12 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                         name={`arm-${index + 1}-name`}
                         placeholder="Give the arm a searchable name"
                         value={arm.name || ""}
-                        onChange={(e) =>
-                          updateArm(index, { name: e.target.value })
-                        }
+                        onChange={(e) => {
+                          updateArm(index, { name: e.target.value });
+                          if (index === 0) {
+                            updateArm(index, { is_treatment_arm: true });
+                          }
+                        }}
                       />
                       {errors[index]?.name ? (
                         <p className="text-red-500 text-xs mt-1">
@@ -236,77 +212,12 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                   </div>
                 </Field>
               </div>
-              {experimentState.prior_type === "beta" && (
                 <div className="basis-1/2 grow">
                   <Field className="flex flex-col mb-4">
                     <div className="flex flex-row">
                       <Label
                         className="basis-1/4 mt-3 font-medium"
-                        htmlFor="alpha"
-                      >
-                        Alpha prior
-                      </Label>
-                      <div className="basis-3/4 flex flex-col">
-                        <Input
-                          id={`arm-${index + 1}-alpha`}
-                          name={`arm-${index + 1}-alpha`}
-                          placeholder="Enter an integer as the prior for the alpha parameter"
-                          value={(arm as NewMABArmBeta).alpha_init || ""}
-                          onChange={(e) => {
-                            updateArm(index, {
-                              alpha_init: parseInt(e.target.value),
-                            });
-                          }}
-                        />
-                        {errors[index]?.alpha_init ? (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors[index].alpha_init}
-                          </p>
-                        ) : (
-                          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
-                        )}
-                      </div>
-                    </div>
-                  </Field>
-                  <Field className="flex flex-col">
-                    <div className="flex flex-row">
-                      <Label
-                        className="basis-1/4 mt-3 font-medium"
-                        htmlFor="beta"
-                      >
-                        Beta prior
-                      </Label>
-                      <div className="basis-3/4 flex flex-col">
-                        <Input
-                          id={`arm-${index + 1}-beta`}
-                          name={`arm-${index + 1}-beta`}
-                          placeholder="Enter an integer as the prior for the beta parameter"
-                          value={(arm as NewMABArmBeta).beta_init || ""}
-                          onChange={(e) => {
-                            updateArm(index, {
-                              beta_init: parseInt(e.target.value),
-                            });
-                          }}
-                        />
-                        {errors[index]?.beta_init ? (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors[index].beta_init}
-                          </p>
-                        ) : (
-                          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
-                        )}
-                      </div>
-                    </div>
-                  </Field>
-                </div>
-              )}
-              {experimentState.prior_type === "normal" && (
-                <div className="basis-1/2 grow">
-                  <Field className="flex flex-col mb-4">
-                    <div className="flex flex-row">
-                      <Label
-                        className="basis-1/4 mt-3 font-medium"
-                        htmlFor="mu"
+                        htmlFor="mu_init"
                       >
                         Mean prior
                       </Label>
@@ -319,7 +230,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           defaultValue={0}
                           value={
                             inputValues[`${index}-mu`] ??
-                            (arm as NewMABArmNormal).mu_init?.toString()
+                            (arm as NewBayesianABArm).mu_init?.toString()
                           }
                           onChange={(e) => {
                             handleNumericChange(index, e.target.value);
@@ -350,7 +261,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           type="number"
                           defaultValue={1}
                           placeholder="Enter a float as standard deviation for the prior"
-                          value={(arm as NewMABArmNormal).sigma_init || ""}
+                          value={(arm as NewBayesianABArm).sigma_init || ""}
                           onChange={(e) => {
                             updateArm(index, { sigma_init: Number(e.target.value) });
                           }}
@@ -366,7 +277,6 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                     </div>
                   </Field>
                 </div>
-              )}
             </FieldGroup>
           </div>
         ))}

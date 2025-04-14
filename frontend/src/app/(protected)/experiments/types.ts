@@ -65,7 +65,7 @@ interface StepValidation {
 interface NewBayesianABArm extends ArmBase {
   mu_init: number;
   sigma_init: number;
-  is_treatment: boolean;
+  is_treatment_arm: boolean;
 }
 
 interface BayesianABArm extends NewBayesianABArm {

@@ -123,10 +123,10 @@ export default function AddBasicInfo({
             </Description>
           </RadioField>
           <RadioField>
-            <Radio id="bayes-ab-test" value="bayes_ab" disabled />
-            <Label htmlFor="bayes-ab-test">[Coming soon] A/B Testing</Label>
+            <Radio id="bayes-ab-test" value="bayes_ab" />
+            <Label htmlFor="bayes-ab-test">Bayesian A/B Testing</Label>
             <Description>
-              A method that compares two or more variants against each other.
+              A method that compares two variants against each other.
             </Description>
           </RadioField>
         </RadioGroup>

@@ -208,7 +208,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             newState = {
               ...baseDescr,
               methodType: newMethodType,
-              prior_type,
+              prior_type: "normal",
               reward_type,
               notifications,
               arms: [
@@ -217,12 +217,14 @@ export const useExperimentStore = create<ExperimentStore>()(
                   description: "",
                   mu_init: 0,
                   sigma_init: 1,
+                  is_treatment_arm: true,
                 } as NewBayesianABArm,
                 {
                   name: "",
                   description: "",
                   mu_init: 0,
                   sigma_init: 1,
+                  is_treatment_arm: false,
                 } as NewBayesianABArm,
               ],
             } as BayesianABState;
