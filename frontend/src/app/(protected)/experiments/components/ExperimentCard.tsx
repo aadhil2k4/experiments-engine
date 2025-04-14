@@ -15,10 +15,10 @@ export default function ExperimentCards({
   experiment: MABBeta | MABNormal | CMAB;
   methodType: MethodType;
 }) {
-  if (methodType === "mab" && experiment.priorType === "beta") {
+  if (methodType === "mab" && experiment.prior_type === "beta") {
     const betaExperiment = experiment as MABBeta;
     return <MABBetaCards experiment={betaExperiment} />;
-  } else if (methodType === "mab" && experiment.priorType === "normal") {
+  } else if (methodType === "mab" && experiment.prior_type === "normal") {
     const normalExperiment = experiment as MABNormal;
     return <MABNormalCards experiment={normalExperiment} />;
   } else if (methodType === "cmab") {

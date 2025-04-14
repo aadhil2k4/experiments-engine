@@ -39,9 +39,9 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
 
   const additionalArmErrors = useMemo(
     () =>
-      experimentState.priorType === "beta"
-        ? { alpha: "", beta: "" }
-        : { mu: "", sigma: "" },
+      experimentState.prior_type === "beta"
+        ? { alpha_init: "", beta_init: "" }
+        : { mu_init: "", sigma_init: "" },
     [experimentState]
   );
 
@@ -69,43 +69,43 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
         isValid = false;
       }
 
-      if (experimentState.priorType === "beta") {
-        if ("alpha" in arm) {
-          if (!arm.alpha) {
-            newErrors[index].alpha = "Alpha prior is required";
+      if (experimentState.prior_type === "beta") {
+        if ("alpha_init" in arm) {
+          if (!arm.alpha_init) {
+            newErrors[index].alpha_init = "Alpha prior is required";
             isValid = false;
           }
-          if (arm.alpha <= 0) {
-            newErrors[index].alpha = "Alpha prior should be greater than 0";
+          if (arm.alpha_init <= 0) {
+            newErrors[index].alpha_init = "Alpha prior should be greater than 0";
             isValid = false;
           }
         }
 
-        if ("beta" in arm) {
-          if (!arm.beta) {
-            newErrors[index].beta = "Beta prior is required";
+        if ("beta_init" in arm) {
+          if (!arm.beta_init) {
+            newErrors[index].beta_init = "Beta prior is required";
             isValid = false;
           }
 
-          if (arm.beta <= 0) {
-            newErrors[index].beta = "Beta prior should be greater than 0";
+          if (arm.beta_init <= 0) {
+            newErrors[index].beta_init = "Beta prior should be greater than 0";
             isValid = false;
           }
         }
-      } else if (experimentState.priorType === "normal") {
-        if ("mu" in arm && typeof arm.mu !== "number") {
-          newErrors[index].mu = "Mean value is required";
+      } else if (experimentState.prior_type === "normal") {
+        if ("mu_init" in arm && typeof arm.mu_init !== "number") {
+          newErrors[index].mu_init = "Mean value is required";
           isValid = false;
         }
 
-        if ("sigma" in arm) {
-          if (!arm.sigma) {
-            newErrors[index].sigma = "Std. deviation is required";
+        if ("sigma_init" in arm) {
+          if (!arm.sigma_init) {
+            newErrors[index].sigma_init = "Std. deviation is required";
             isValid = false;
           }
 
-          if (arm.sigma <= 0) {
-            newErrors[index].sigma = "Std deviation should be greater than 0";
+          if (arm.sigma_init <= 0) {
+            newErrors[index].sigma_init = "Std deviation should be greater than 0";
             isValid = false;
           }
         }
@@ -135,7 +135,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
     if (isMABExperimentStateNormal(experimentState)) {
       experimentState.arms.forEach((arm, index) => {
         newInputValues[`${index}-mu`] = (
-          (arm as MABArmNormal).mu || 0
+          (arm as MABArmNormal).mu_init || 0
         ).toString();
       });
     }
@@ -152,7 +152,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
     if (value !== "" && value !== "-") {
       const numValue = Number.parseFloat(value);
       if (!isNaN(numValue)) {
-        updateArm(index, { mu: numValue });
+        updateArm(index, { mu_init: numValue });
       }
     }
   };
@@ -235,7 +235,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                   </div>
                 </Field>
               </div>
-              {experimentState.priorType === "beta" && (
+              {experimentState.prior_type === "beta" && (
                 <div className="basis-1/2 grow">
                   <Field className="flex flex-col mb-4">
                     <div className="flex flex-row">
@@ -253,13 +253,13 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           value={(arm as MABArmBeta).alpha || ""}
                           onChange={(e) => {
                             updateArm(index, {
-                              alpha: parseInt(e.target.value),
+                              alpha_init: parseInt(e.target.value),
                             });
                           }}
                         />
-                        {errors[index]?.alpha ? (
+                        {errors[index]?.alpha_init ? (
                           <p className="text-red-500 text-xs mt-1">
-                            {errors[index].alpha}
+                            {errors[index].alpha_init}
                           </p>
                         ) : (
                           <p className="text-red-500 text-xs mt-1">&nbsp;</p>
@@ -283,13 +283,13 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           value={(arm as MABArmBeta).beta || ""}
                           onChange={(e) => {
                             updateArm(index, {
-                              beta: parseInt(e.target.value),
+                              beta_init: parseInt(e.target.value),
                             });
                           }}
                         />
-                        {errors[index]?.beta ? (
+                        {errors[index]?.beta_init ? (
                           <p className="text-red-500 text-xs mt-1">
-                            {errors[index].beta}
+                            {errors[index].beta_init}
                           </p>
                         ) : (
                           <p className="text-red-500 text-xs mt-1">&nbsp;</p>
@@ -299,7 +299,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                   </Field>
                 </div>
               )}
-              {experimentState.priorType === "normal" && (
+              {experimentState.prior_type === "normal" && (
                 <div className="basis-1/2 grow">
                   <Field className="flex flex-col mb-4">
                     <div className="flex flex-row">
@@ -324,9 +324,9 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                             handleNumericChange(index, e.target.value);
                           }}
                         />
-                        {errors[index]?.mu ? (
+                        {errors[index]?.mu_init ? (
                           <p className="text-red-500 text-xs mt-1">
-                            {errors[index].mu}
+                            {errors[index].mu_init}
                           </p>
                         ) : (
                           <p className="text-red-500 text-xs mt-1">&nbsp;</p>
@@ -349,14 +349,14 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           type="number"
                           defaultValue={1}
                           placeholder="Enter a float as standard deviation for the prior"
-                          value={(arm as NewMABArmNormal).sigma || ""}
+                          value={(arm as NewMABArmNormal).sigma_init || ""}
                           onChange={(e) => {
-                            updateArm(index, { sigma: Number(e.target.value) });
+                            updateArm(index, { sigma_init: Number(e.target.value) });
                           }}
                         />
-                        {errors[index]?.sigma ? (
+                        {errors[index]?.sigma_init ? (
                           <p className="text-red-500 text-xs mt-1">
-                            {errors[index].sigma}
+                            {errors[index].sigma_init}
                           </p>
                         ) : (
                           <p className="text-red-500 text-xs mt-1">&nbsp;</p>

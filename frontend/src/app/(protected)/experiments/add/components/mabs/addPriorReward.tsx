@@ -12,45 +12,45 @@ export default function MABPriorRewardSelection({
   const { experimentState, updatePriorType, updateRewardType } =
     useExperimentStore();
   const [errors, setErrors] = useState({
-    priorType: "",
-    rewardType: "",
+    prior_type: "",
+    reward_type: "",
   });
 
   const validateForm = useCallback(() => {
     let isValid = true;
     const newErrors = {
-      priorType: "",
-      rewardType: "",
+      prior_type: "",
+      reward_type: "",
     };
 
-    if (!experimentState.priorType) {
-      newErrors.priorType = "Please select a prior type";
+    if (!experimentState.prior_type) {
+      newErrors.prior_type = "Please select a prior type";
       isValid = false;
     }
 
-    if (!experimentState.rewardType) {
-      newErrors.rewardType = "Please select a reward type";
+    if (!experimentState.reward_type) {
+      newErrors.reward_type = "Please select a reward type";
       isValid = false;
     }
 
     if (
-      experimentState.priorType === "normal" &&
-      experimentState.rewardType === "binary"
+      experimentState.prior_type === "normal" &&
+      experimentState.reward_type === "binary"
     ) {
-      newErrors.rewardType =
+      newErrors.reward_type =
         "Normal prior is not compatible with binary reward";
       isValid = false;
     }
     if (
-      experimentState.priorType === "beta" &&
-      experimentState.rewardType === "real-valued"
+      experimentState.prior_type === "beta" &&
+      experimentState.reward_type === "real-valued"
     ) {
-      newErrors.rewardType =
+      newErrors.reward_type =
         "Beta prior is not compatible with real-valued reward";
       isValid = false;
     }
     return { isValid, newErrors };
-  }, [experimentState.priorType, experimentState.rewardType]);
+  }, [experimentState.prior_type, experimentState.reward_type]);
 
   useEffect(() => {
     const { isValid, newErrors } = validateForm();
@@ -74,10 +74,10 @@ export default function MABPriorRewardSelection({
       <Fieldset aria-label="MAB Parameters" className="pt-6">
         <DividerWithTitle title="Prior Type" />
         <RadioGroup
-          name="priorType"
+          name="prior_type"
           defaultValue=""
           onChange={(value) => updatePriorType(value as PriorType)}
-          value={experimentState.priorType}
+          value={experimentState.prior_type}
         >
           <div className="mb-4" />
           <Label>Select prior type for the experiment</Label>
@@ -97,18 +97,18 @@ export default function MABPriorRewardSelection({
             </Description>
           </RadioField>
         </RadioGroup>
-        {errors.priorType ? (
-          <p className="text-red-500 text-xs mt-1">{errors.priorType}</p>
+        {errors.prior_type ? (
+          <p className="text-red-500 text-xs mt-1">{errors.prior_type}</p>
         ) : (
           <p className="text-red-500 text-xs mt-1">&nbsp;</p>
         )}
 
         <DividerWithTitle title="Outcome Type" />
         <RadioGroup
-          name="rewardType"
+          name="reward_type"
           defaultValue=""
           onChange={(value) => updateRewardType(value as RewardType)}
-          value={experimentState.rewardType}
+          value={experimentState.reward_type}
         >
           <div className="mb-4" />
           <Label>Select an outcome type for the experiment</Label>
@@ -130,8 +130,8 @@ export default function MABPriorRewardSelection({
             </Description>
           </RadioField>
         </RadioGroup>
-        {errors.rewardType ? (
-          <p className="text-red-500 text-xs mt-1">{errors.rewardType}</p>
+        {errors.reward_type ? (
+          <p className="text-red-500 text-xs mt-1">{errors.reward_type}</p>
         ) : (
           <p className="text-red-500 text-xs mt-1">&nbsp;</p>
         )}

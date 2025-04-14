@@ -1,5 +1,5 @@
 import api from "@/utils/api";
-import { ExperimentState } from "./types";
+import { ExperimentState, MABBeta, MABNormal, CMAB } from "./types";
 import {
   isMABExperimentStateBeta,
   isMABExperimentStateNormal,
@@ -18,54 +18,25 @@ const createNewExperiment = async ({
     data: ExperimentState
   ): {
     endpoint: string;
-    convertedData: Record<
-      string,
-      string | string[] | boolean | number | object
-    >;
   } => {
-    const baseData = {
-      name: data.name,
-      description: data.description,
-      arms: data.arms,
-      notifications: data.notifications,
-    };
-
     if (isMABExperimentStateBeta(data) || isMABExperimentStateNormal(data)) {
-      return {
-        endpoint: "/mab/",
-        convertedData: {
-          ...baseData,
-          reward_type: data.rewardType,
-          prior_type: data.priorType,
-        },
-      };
+      return {endpoint: "/mab/"};
     }
 
     if (isCMABExperimentState(data)) {
-      return {
-        endpoint: "/contextual_mab/",
-        convertedData: {
-          ...baseData,
-          reward_type: data.rewardType,
-          prior_type: data.priorType,
-          contexts: data.contexts,
-        },
-      };
+      return {endpoint: "/contextual_mab/"};
     }
 
     if (isABExperimentState(data)) {
-      return {
-        endpoint: "/ab/",
-        convertedData: baseData,
-      };
+      return {endpoint: "/ab/"};
     }
 
     throw new Error("Invalid experiment type");
   };
 
   try {
-    const { endpoint, convertedData } = getEndpointAndData(experimentData);
-    const response = await api.post(endpoint, convertedData, {
+    const { endpoint } = getEndpointAndData(experimentData);
+    const response = await api.post(endpoint, experimentData, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -86,13 +57,10 @@ const getAllMABExperiments = async (token: string | null) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    const convertedData = response.data.map(
-      (experiment: { prior_type: string; reward_type: string }) => ({
-        ...experiment,
-        priorType: experiment.prior_type,
-        rewardType: experiment.reward_type,
-      })
-    );
+    const convertedData = response.data.map((experiment: MABBeta | MABNormal) => ({
+      ...experiment,
+      methodType: "mab"
+    }));
     return convertedData;
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -110,13 +78,10 @@ const getAllCMABExperiments = async (token: string | null) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    const convertedData = response.data.map(
-      (experiment: { prior_type: string; reward_type: string }) => ({
-        ...experiment,
-        priorType: experiment.prior_type,
-        rewardType: experiment.reward_type,
-      })
-    );
+    const convertedData = response.data.map((experiment: CMAB) => ({
+      ...experiment,
+      methodType: "cmab"
+    }));
     return convertedData;
   } catch (error: unknown) {
     if (error instanceof Error) {

@@ -12,25 +12,25 @@ export default function CMABPriorRewardSelection({
 }: StepComponentProps) {
   const { experimentState, updateRewardType } = useExperimentStore();
   const [errors, setErrors] = useState({
-    priorType: "",
-    rewardType: "",
+    prior_type: "",
+    reward_type: "",
   });
 
   const validateForm = useCallback(() => {
     let isValid = true;
     const newErrors = {
-      priorType: "",
-      rewardType: "",
+      prior_type: "",
+      reward_type: "",
     };
 
     // Prior type is fixed as "normal" for CMAB, so we don't need to validate it
-    if (!experimentState.rewardType) {
-      newErrors.rewardType = "Please select a reward type";
+    if (!experimentState.reward_type) {
+      newErrors.reward_type = "Please select a reward type";
       isValid = false;
     }
 
     return { isValid, newErrors };
-  }, [experimentState.rewardType]);
+  }, [experimentState.reward_type]);
 
   useEffect(() => {
     const { isValid, newErrors } = validateForm();
@@ -54,7 +54,7 @@ export default function CMABPriorRewardSelection({
         <RadioGroup
           name="priorType"
           defaultValue="normal"
-          value={experimentState.priorType}
+          value={experimentState.prior_type}
         >
           <div className="mb-4" />
           <Label>Select prior type for the experiment</Label>
@@ -66,8 +66,8 @@ export default function CMABPriorRewardSelection({
             </Description>
           </RadioField>
         </RadioGroup>
-        {errors.priorType ? (
-          <p className="text-red-500 text-xs mt-1">{errors.priorType}</p>
+        {errors.prior_type ? (
+          <p className="text-red-500 text-xs mt-1">{errors.prior_type}</p>
         ) : (
           <p className="text-red-500 text-xs mt-1">&nbsp;</p>
         )}
@@ -77,7 +77,7 @@ export default function CMABPriorRewardSelection({
           name="rewardType"
           defaultValue=""
           onChange={(value) => updateRewardType(value as RewardType)}
-          value={experimentState.rewardType}
+          value={experimentState.reward_type}
         >
           <div className="mb-4" />
           <Label>Select an outcome type for the experiment</Label>
@@ -99,8 +99,8 @@ export default function CMABPriorRewardSelection({
             </Description>
           </RadioField>
         </RadioGroup>
-        {errors.rewardType ? (
-          <p className="text-red-500 text-xs mt-1">{errors.rewardType}</p>
+        {errors.reward_type ? (
+          <p className="text-red-500 text-xs mt-1">{errors.reward_type}</p>
         ) : (
           <p className="text-red-500 text-xs mt-1">&nbsp;</p>
         )}

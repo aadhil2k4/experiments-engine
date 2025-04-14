@@ -47,8 +47,8 @@ interface ExperimentStateBase {
   name: string;
   description: string;
   methodType: MethodType;
-  priorType: PriorType;
-  rewardType: RewardType;
+  prior_type: PriorType;
+  reward_type: RewardType;
 }
 
 interface ArmBase {
@@ -88,21 +88,25 @@ interface AB extends ABExperimentState {
 // ----- MAB
 
 interface NewMABArmBeta extends ArmBase {
-  alpha: number;
-  beta: number;
+  alpha_init: number;
+  beta_init: number;
 }
 
 interface NewMABArmNormal extends ArmBase {
-  mu: number;
-  sigma: number;
+  mu_init: number;
+  sigma_init: number;
 }
 
 interface MABArmBeta extends NewMABArmBeta {
   arm_id: number;
+  alpha: number;
+  beta: number;
 }
 
 interface MABArmNormal extends NewMABArmNormal {
   arm_id: number;
+  mu: number;
+  sigma: number;
 }
 
 interface MABExperimentStateNormal extends ExperimentStateBase {

@@ -22,13 +22,13 @@ import type {
 export function isMABExperimentStateBeta(
   state: ExperimentState
 ): state is MABExperimentStateBeta {
-  return state.methodType === "mab" && state.priorType === "beta";
+  return state.methodType === "mab" && state.prior_type === "beta";
 }
 
 export function isMABExperimentStateNormal(
   state: ExperimentState
 ): state is MABExperimentStateNormal {
-  return state.methodType === "mab" && state.priorType === "normal";
+  return state.methodType === "mab" && state.prior_type === "normal";
 }
 
 export function isCMABExperimentState(
@@ -53,7 +53,7 @@ interface ExperimentStore {
   updateMethodType: (methodType: MethodType) => void;
 
   // Prior and reward type page
-  updatePriorType: (priorType: PriorType) => void;
+  updatePriorType: (prior_type: PriorType) => void;
   updateRewardType: (rewardType: RewardType) => void;
 
   // Arms updates
@@ -85,14 +85,14 @@ interface ExperimentStore {
 const createInitialState = (): ExperimentState => {
   const baseDescr = { name: "", description: "" };
   const methodType: MethodType = "mab";
-  const priorType: PriorType = "beta";
-  const rewardType: RewardType = "binary";
+  const prior_type: PriorType = "beta";
+  const reward_type: RewardType = "binary";
 
   const baseMABState = {
     ...baseDescr,
     methodType,
-    rewardType,
-    priorType,
+    reward_type,
+    prior_type,
     notifications: {
       onTrialCompletion: false,
       numberOfTrials: 0,
@@ -106,8 +106,8 @@ const createInitialState = (): ExperimentState => {
   return {
     ...baseMABState,
     arms: [
-      { name: "", description: "", alpha: 1, beta: 1 } as NewMABArmBeta,
-      { name: "", description: "", alpha: 1, beta: 1 } as NewMABArmBeta,
+      { name: "", description: "", alpha_init: 1, beta_init: 1 } as NewMABArmBeta,
+      { name: "", description: "", alpha_init: 1, beta_init: 1 } as NewMABArmBeta,
     ],
   } as MABExperimentStateBeta;
 };
@@ -139,7 +139,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             name: experimentState.name,
             description: experimentState.description,
           };
-          const { rewardType, priorType, notifications } = experimentState;
+          const { reward_type, prior_type, notifications } = experimentState;
 
           let newState: ExperimentState;
 
@@ -147,21 +147,21 @@ export const useExperimentStore = create<ExperimentStore>()(
             newState = {
               ...baseDescr,
               methodType: newMethodType,
-              priorType: "beta",
-              rewardType,
+              prior_type: "beta",
+              reward_type,
               notifications,
               arms: [
                 {
                   name: "",
                   description: "",
-                  alpha: 1,
-                  beta: 1,
+                  alpha_init: 1,
+                  beta_init: 1,
                 } as NewMABArmBeta,
                 {
                   name: "",
                   description: "",
-                  alpha: 1,
-                  beta: 1,
+                  alpha_init: 1,
+                  beta_init: 1,
                 } as NewMABArmBeta,
               ],
             } as MABExperimentStateBeta;
@@ -169,8 +169,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             newState = {
               ...baseDescr,
               methodType: newMethodType,
-              priorType: "normal",
-              rewardType,
+              prior_type: "normal",
+              reward_type,
               notifications,
               arms: [
                 {
@@ -198,8 +198,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             newState = {
               ...baseDescr,
               methodType: newMethodType,
-              priorType,
-              rewardType,
+              prior_type,
+              reward_type,
               notifications,
               arms: [
                 {
@@ -232,7 +232,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           const { experimentState } = state;
 
           // If the prior type is the same, do nothing
-          if (newPriorType === experimentState.priorType)
+          if (newPriorType === experimentState.prior_type)
             return { experimentState };
 
           // Create new state based on prior type
@@ -240,9 +240,9 @@ export const useExperimentStore = create<ExperimentStore>()(
             name: experimentState.name,
             description: experimentState.description,
             methodType: experimentState.methodType,
-            rewardType: experimentState.rewardType,
+            reward_type: experimentState.reward_type,
             notifications: experimentState.notifications,
-            priorType: newPriorType,
+            prior_type: newPriorType,
           };
 
           let newState: ExperimentState;
@@ -254,8 +254,8 @@ export const useExperimentStore = create<ExperimentStore>()(
                 ...baseState,
                 arms: experimentState.arms.map(() => ({
                   ...baseArm,
-                  alpha: 1,
-                  beta: 1,
+                  alpha_init: 1,
+                  beta_init: 1,
                 })) as NewMABArmBeta[],
               } as MABExperimentStateBeta;
             } else {
@@ -263,15 +263,15 @@ export const useExperimentStore = create<ExperimentStore>()(
                 ...baseState,
                 arms: experimentState.arms.map(() => ({
                   ...baseArm,
-                  mu: 0,
-                  sigma: 1,
+                  mu_init: 0,
+                  sigma_init: 1,
                 })) as NewMABArmNormal[],
               } as MABExperimentStateNormal;
             }
           } else if (experimentState.methodType === "cmab") {
             newState = {
               ...baseState,
-              priorType: "normal",
+              prior_type: "normal",
               arms: experimentState.arms.map(() => ({
                 ...baseArm,
                 mu_init: 0,
@@ -300,7 +300,7 @@ export const useExperimentStore = create<ExperimentStore>()(
         set((state) => ({
           experimentState: {
             ...state.experimentState,
-            rewardType: newRewardType,
+            reward_type: newRewardType,
           },
         })),
 
@@ -404,8 +404,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             const newArm = {
               name: "",
               description: "",
-              alpha: 1,
-              beta: 1,
+              alpha_init: 1,
+              beta_init: 1,
             } as NewMABArmBeta;
             return {
               experimentState: {
@@ -417,8 +417,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             const newArm = {
               name: "",
               description: "",
-              mu: 0,
-              sigma: 1,
+              mu_init: 0,
+              sigma_init: 1,
             } as NewMABArmNormal;
             return {
               experimentState: {

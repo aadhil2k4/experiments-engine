@@ -21,16 +21,31 @@ export default function Experiments() {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    getAllMABExperiments(token).then((data) => {
-      setMABExperiments(data);
-    });
-    getAllCMABExperiments(token).then((data) => {
-      setCMABExperiments(data);
-    });
-    setLoading(false);
+
+    const fetchData = async() => {
+    try {
+      const [mabData, cmabData] = await Promise.all([
+        getAllMABExperiments(token),
+        getAllCMABExperiments(token),
+      ]);
+      setMABExperiments(mabData);
+      setCMABExperiments(cmabData);
+    }
+    catch (error) {
+      console.error("Error fetching experiments:", error);
+    }
+    finally {
+      setLoading(false);
+
+    }
+  };
+  fetchData();
   }, [token]);
 
   useEffect(() => {
+    console.log("MAB experiments length", mabExperiments.length);
+    console.log("MAB Experiments:", mabExperiments);
+    console.log("have experiments:", haveExperiments);
     if (mabExperiments.length > 0 || cmabExperiments.length > 0) {
       setHaveExperiments(true);
     } else {
