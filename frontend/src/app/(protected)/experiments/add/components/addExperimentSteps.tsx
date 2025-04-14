@@ -4,7 +4,7 @@ import MABPriorRewardSelection from "./mabs/addPriorReward";
 import AddCMABArms from "./cmabs/addCMABArms";
 import AddCMABContexts from "./cmabs/addCMABContext";
 import CMABPriorRewardSelection from "./cmabs/addPriorReward";
-import AddABArms from "./ab/addABArms";
+import AddABArms from "./bayes_ab/addABArms";
 import AddNotifications from "./addNotifications";
 
 // --- MAB types and steps ---

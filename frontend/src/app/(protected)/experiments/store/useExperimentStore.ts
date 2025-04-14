@@ -6,13 +6,13 @@ import type {
   NewCMABArm,
   MABExperimentStateBeta,
   MABExperimentStateNormal,
-  ABExperimentState,
+  BayesianABState,
   PriorType,
   RewardType,
   MethodType,
   NewMABArmBeta,
   NewMABArmNormal,
-  NewABArm,
+  NewBayesianABArm,
   NewContext,
   Notifications,
 } from "../types";
@@ -37,10 +37,10 @@ export function isCMABExperimentState(
   return state.methodType === "cmab";
 }
 
-export function isABExperimentState(
+export function isBayesianABState(
   state: ExperimentState
-): state is ABExperimentState {
-  return state.methodType === "ab";
+): state is BayesianABState {
+  return state.methodType === "bayes_ab";
 }
 
 // Define store
@@ -58,11 +58,11 @@ interface ExperimentStore {
 
   // Arms updates
   updateArms: (
-    arms: NewMABArmBeta[] | NewMABArmNormal[] | NewCMABArm[] | NewABArm[]
+    arms: NewMABArmBeta[] | NewMABArmNormal[] | NewCMABArm[] | NewBayesianABArm[]
   ) => void;
   updateArm: (
     index: number,
-    arm: Partial<NewMABArmBeta | NewMABArmNormal | NewCMABArm | NewABArm>
+    arm: Partial<NewMABArmBeta | NewMABArmNormal | NewCMABArm | NewBayesianABArm>
   ) => void;
   addArm: () => void;
   removeArm: (index: number) => void;
@@ -106,8 +106,18 @@ const createInitialState = (): ExperimentState => {
   return {
     ...baseMABState,
     arms: [
-      { name: "", description: "", alpha_init: 1, beta_init: 1 } as NewMABArmBeta,
-      { name: "", description: "", alpha_init: 1, beta_init: 1 } as NewMABArmBeta,
+      {
+        name: "",
+        description: "",
+        alpha_init: 1,
+        beta_init: 1,
+      } as NewMABArmBeta,
+      {
+        name: "",
+        description: "",
+        alpha_init: 1,
+        beta_init: 1,
+      } as NewMABArmBeta,
     ],
   } as MABExperimentStateBeta;
 };
@@ -194,7 +204,7 @@ export const useExperimentStore = create<ExperimentStore>()(
                 } as NewContext,
               ],
             } as CMABExperimentState;
-          } else if (newMethodType == "ab") {
+          } else if (newMethodType == "bayes_ab") {
             newState = {
               ...baseDescr,
               methodType: newMethodType,
@@ -205,21 +215,17 @@ export const useExperimentStore = create<ExperimentStore>()(
                 {
                   name: "",
                   description: "",
-                  mean_posterior: 0,
-                  stdDev_posterior: 1,
-                  mean_prior: 0,
-                  stdDev_prior: 1,
-                } as NewABArm,
+                  mu_init: 0,
+                  sigma_init: 1,
+                } as NewBayesianABArm,
                 {
                   name: "",
                   description: "",
-                  mean_posterior: 0,
-                  stdDev_posterior: 1,
-                  mean_prior: 0,
-                  stdDev_prior: 1,
-                } as NewABArm,
+                  mu_init: 0,
+                  sigma_init: 1,
+                } as NewBayesianABArm,
               ],
-            } as ABExperimentState;
+            } as BayesianABState;
           } else {
             throw new Error("Invalid method type");
           }
@@ -284,12 +290,10 @@ export const useExperimentStore = create<ExperimentStore>()(
               ...baseState,
               arms: experimentState.arms.map(() => ({
                 ...baseArm,
-                mean_posterior: 0,
-                stdDev_posterior: 1,
-                mean_prior: 0,
-                stdDev_prior: 1,
-              })) as NewABArm[],
-            } as ABExperimentState;
+                mu_init: 0,
+                sigma_init: 1,
+              })) as NewBayesianABArm[],
+            } as BayesianABState;
           }
 
           return { experimentState: newState };
@@ -306,7 +310,7 @@ export const useExperimentStore = create<ExperimentStore>()(
 
       // ------------  Arms updates ------------
       updateArms: (
-        newArms: NewMABArmBeta[] | NewMABArmNormal[] | NewCMABArm[] | NewABArm[]
+        newArms: NewMABArmBeta[] | NewMABArmNormal[] | NewCMABArm[] | NewBayesianABArm[]
       ) =>
         set((state) => {
           const { experimentState } = state;
@@ -332,8 +336,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             };
             return { experimentState: updatedState };
           } else {
-            const validatedArms = newArms as NewABArm[];
-            const updatedState: ABExperimentState = {
+            const validatedArms = newArms as NewBayesianABArm[];
+            const updatedState: BayesianABState = {
               ...experimentState,
               arms: validatedArms,
             };
@@ -344,7 +348,7 @@ export const useExperimentStore = create<ExperimentStore>()(
       updateArm: (
         index: number,
         armUpdate: Partial<
-          NewMABArmBeta | NewMABArmNormal | NewCMABArm | NewABArm
+          NewMABArmBeta | NewMABArmNormal | NewCMABArm | NewBayesianABArm
         >
       ) =>
         set((state) => {
@@ -381,13 +385,13 @@ export const useExperimentStore = create<ExperimentStore>()(
             return {
               experimentState: { ...state.experimentState, arms: newArms },
             };
-          } else if (isABExperimentState(state.experimentState)) {
+          } else if (isBayesianABState(state.experimentState)) {
             const newArms = JSON.parse(
               JSON.stringify(state.experimentState.arms)
-            ) as NewABArm[];
+            ) as NewBayesianABArm[];
             newArms[index] = {
               ...newArms[index],
-              ...(armUpdate as Partial<NewABArm>),
+              ...(armUpdate as Partial<NewBayesianABArm>),
             };
             return {
               experimentState: { ...state.experimentState, arms: newArms },
@@ -443,11 +447,9 @@ export const useExperimentStore = create<ExperimentStore>()(
             const newArm = {
               name: "",
               description: "",
-              mean_posterior: 0,
-              stdDev_posterior: 1,
-              mean_prior: 0,
-              stdDev_prior: 1,
-            } as NewABArm;
+              mu_init: 0,
+              sigma_init: 1,
+            } as NewBayesianABArm;
             return {
               experimentState: {
                 ...experimentState,
@@ -485,11 +487,11 @@ export const useExperimentStore = create<ExperimentStore>()(
                 arms: newArms as NewCMABArm[],
               },
             };
-          } else if (isABExperimentState(experimentState)) {
+          } else if (isBayesianABState(experimentState)) {
             return {
               experimentState: {
                 ...experimentState,
-                arms: newArms as NewABArm[],
+                arms: newArms as NewBayesianABArm[],
               },
             };
           } else {
