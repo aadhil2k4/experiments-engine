@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import authenticate_key, get_current_user
+from ..auth.dependencies import authenticate_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import ContextType, NotificationsResponse, Outcome
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/contextual_mab", tags=["Contextual Bandits"])
 @router.post("/", response_model=ContextualBanditResponse)
 async def create_contextual_mabs(
     experiment: ContextualBandit,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContextualBanditResponse | HTTPException:
     """
@@ -55,7 +55,7 @@ async def create_contextual_mabs(
 
 @router.get("/", response_model=list[ContextualBanditResponse])
 async def get_contextual_mabs(
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[ContextualBanditResponse]:
     """
@@ -89,7 +89,7 @@ async def get_contextual_mabs(
 @router.get("/{experiment_id}", response_model=ContextualBanditResponse)
 async def get_contextual_mab(
     experiment_id: int,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContextualBanditResponse | HTTPException:
     """
@@ -116,7 +116,7 @@ async def get_contextual_mab(
 @router.delete("/{experiment_id}", response_model=dict)
 async def delete_contextual_mab(
     experiment_id: int,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> dict:
     """
