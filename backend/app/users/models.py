@@ -9,7 +9,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from ..workspaces.models import UserWorkspaceDB, WorkspaceDB
 
 from ..models import Base
 from ..utils import get_key_hash, get_password_salted_hash, get_random_string
@@ -54,6 +56,17 @@ class UserDB(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    
+    # Relationships for workspaces
+    user_workspaces: Mapped[list["UserWorkspaceDB"]] = relationship(
+        "UserWorkspaceDB",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    workspaces: Mapped[list["WorkspaceDB"]] = relationship(
+        "WorkspaceDB", back_populates="users", secondary="user_workspace", viewonly=True
+    )
 
     def __repr__(self) -> str:
         """Pretty Print"""

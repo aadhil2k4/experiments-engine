@@ -19,6 +19,7 @@ DEFAULT_API_QUOTA = int(os.environ.get("DEFAULT_API_QUOTA", 100))
 CHECK_API_LIMIT = os.environ.get("CHECK_API_LIMIT", True)
 CHECK_EXPERIMENTS_LIMIT = os.environ.get("CHECK_EXPERIMENTS_LIMIT", True)
 
+# AWS SES
 SES_REGION = os.environ.get("SES_REGION", None)
 SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", None)
 FRONTEND_URL = os.environ.get("FRONTEND_URL", None)

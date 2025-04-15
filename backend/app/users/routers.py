@@ -42,8 +42,12 @@ async def create_user(
     """
     Create user endpoint.
     """
-
     try:
+        # Import workspace functionality to avoid circular imports
+        from ..workspaces.models import create_user_workspace_role, UserRoles
+        from ..workspaces.utils import create_workspace
+        
+        # Create the user
         new_api_key = generate_key()
         user_new = await save_user_to_db(
             user=user,
@@ -53,6 +57,33 @@ async def create_user(
         )
         await update_api_limits(redis, user_new.username, user_new.api_daily_quota)
 
+        # Create default workspace for the user
+        default_workspace_name = f"{user_new.username}'s Workspace"
+        workspace_api_key = generate_key()
+        
+        workspace_db, _ = await create_workspace(
+            api_daily_quota=DEFAULT_API_QUOTA,
+            asession=asession,
+            content_quota=DEFAULT_CONTENT_QUOTA,
+            user=UserCreate(
+                role=UserRoles.ADMIN,
+                username=user_new.username,
+                workspace_name=default_workspace_name,
+            ),
+            is_default=True,
+            api_key=workspace_api_key
+        )
+        
+        # Add user to workspace as admin
+        await create_user_workspace_role(
+            asession=asession,
+            is_default_workspace=True,
+            user_db=user_new,
+            user_role=UserRoles.ADMIN,
+            workspace_db=workspace_db,
+        )
+
+        # Send verification email
         token = await generate_verification_token(
             user_new.user_id, user_new.username, redis
         )

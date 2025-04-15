@@ -176,9 +176,6 @@ async def get_verified_user(
     """
     Check if the user is verified
     """
-    if ENV == "testing":
-        return user_db
-
     if not user_db.is_verified:
         raise HTTPException(
             status_code=403,

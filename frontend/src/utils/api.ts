@@ -74,12 +74,11 @@ const getGoogleLoginToken = async (idToken: {
 };
 
 const registerUser = async (username: string, password: string) => {
-  const requestBody = {
-    username,
-    password,
-  };
-
   try {
+    const requestBody = {
+      username,
+      password,
+    };
     const response = await api.post("/user/", requestBody, {
       headers: {
         "Content-Type": "application/json",
@@ -87,7 +86,46 @@ const registerUser = async (username: string, password: string) => {
     });
     return response.data;
   } catch (error) {
-    throw error;
+    throw new Error("Error registering user");;
+  }
+};
+
+const requestPasswordReset = async (username: string) => {
+  try {
+    const response = await api.post("/request-password-reset", { username });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error requesting password reset");
+  }
+};
+
+const resetPassword = async (token: string, newPassword: string) => {
+  try {
+    const response = await api.post("/reset-password", {
+      token,
+      new_password: newPassword
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error resetting password");
+  }
+};
+
+const verifyEmail = async (token: string) => {
+  try {
+    const response = await api.post("/verify-email", { token });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error verifying email");
+  }
+};
+
+const resendVerification = async (username: string) => {
+  try {
+    const response = await api.post("/resend-verification", { username });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error resending verification email");
   }
 };
 
