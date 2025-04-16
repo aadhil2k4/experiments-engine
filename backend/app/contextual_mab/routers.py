@@ -1,4 +1,5 @@
-from typing import Annotated, List
+from typing import Annotated, List, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
@@ -15,11 +16,14 @@ from .models import (
     get_all_contextual_obs_by_experiment_id,
     get_contextual_mab_by_id,
     get_contextual_obs_by_experiment_arm_id,
+    get_draw_by_id,
     save_contextual_mab_to_db,
     save_contextual_obs_to_db,
+    save_draw_to_db,
 )
 from .sampling_utils import choose_arm, update_arm_params
 from .schemas import (
+    CMABDrawResponse,
     CMABObservation,
     CMABObservationResponse,
     ContextInput,
@@ -136,13 +140,14 @@ async def delete_contextual_mab(
         raise HTTPException(status_code=500, detail=f"Error: {e}") from e
 
 
-@router.post("/{experiment_id}/draw", response_model=ContextualArmResponse)
+@router.post("/{experiment_id}/draw", response_model=CMABDrawResponse)
 async def draw_arm(
     experiment_id: int,
     context: List[ContextInput],
+    draw_id: Optional[str] = None,
     user_db: UserDB = Depends(authenticate_key),
     asession: AsyncSession = Depends(get_async_session),
-) -> ContextualArmResponse:
+) -> CMABDrawResponse:
     """
     Get which arm to pull next for provided experiment.
     """
@@ -160,21 +165,57 @@ async def draw_arm(
             status_code=400,
             detail="Number of contexts provided does not match the num contexts.",
         )
-
-    for c_input, c_exp in zip(
-        sorted(context, key=lambda x: x.context_id),
-        sorted(experiment.contexts, key=lambda x: x.context_id),
-    ):
-        if c_exp.value_type == ContextType.BINARY.value:
-            Outcome(c_input.context_value)
-
     experiment_data = ContextualBanditSample.model_validate(experiment)
+
+    try:
+        for c_input, c_exp in zip(
+            sorted(context, key=lambda x: x.context_id),
+            sorted(experiment.contexts, key=lambda x: x.context_id),
+        ):
+            if c_exp.value_type == ContextType.BINARY.value:
+                Outcome(c_input.context_value)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid context value: {e}",
+        ) from e
+
+    # Generate UUID if not provided
+    if draw_id is None:
+        draw_id = str(uuid4())
+
+    existing_draw = await get_draw_by_id(draw_id, user_db.user_id, asession)
+    if existing_draw:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Draw ID {draw_id} already exists.",
+        )
     chosen_arm = choose_arm(
         experiment_data,
         [c.context_value for c in sorted(context, key=lambda x: x.context_id)],
     )
 
-    return ContextualArmResponse.model_validate(experiment.arms[chosen_arm])
+    try:
+        _ = save_draw_to_db(
+            experiment_id=experiment.experiment_id,
+            arm_id=experiment.arms[chosen_arm].arm_id,
+            context_val={c.context_id: c.context_value for c in context},
+            draw_id=draw_id,
+            user_id=user_db.user_id,
+            asession=asession,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error saving draw to database: {e}",
+        ) from e
+
+    return CMABDrawResponse.model_validate(
+        {
+            "draw_id": draw_id,
+            "arm": ContextualArmResponse.model_validate(experiment.arms[chosen_arm]),
+        }
+    )
 
 
 @router.put("/{experiment_id}/{arm_id}/{outcome}", response_model=ContextualArmResponse)

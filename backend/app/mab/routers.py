@@ -138,11 +138,6 @@ async def delete_mab(
         raise HTTPException(status_code=500, detail=f"Error: {e}") from e
 
 
-## How to a draw
-## Accept a post request
-## If draw_id is provided then check if unique and use that
-## if not provided, then generate it
-## Return the arm and the draw_id
 @router.get("/{experiment_id}/draw", response_model=MABDrawResponse)
 async def draw_arm(
     experiment_id: int,

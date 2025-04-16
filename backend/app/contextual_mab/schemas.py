@@ -211,3 +211,14 @@ class CMABObservationResponse(CMABObservation):
     observed_datetime_utc: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CMABDrawResponse(BaseModel):
+    """
+    Pydantic model for an response for contextual arm draw
+    """
+
+    draw_id: str
+    arm: ContextualArmResponse
+
+    model_config = ConfigDict(from_attributes=True)

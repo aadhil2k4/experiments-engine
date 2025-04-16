@@ -360,12 +360,8 @@ async def get_draw_by_id(
         .where(MABDrawDB.user_id == user_id)
     )
     result = await asession.execute(statement)
-    draw = result.scalars().first()
 
-    if not draw:
-        return None
-
-    return draw
+    return result.unique().scalar_one_or_none()
 
 
 async def save_draw_to_db(

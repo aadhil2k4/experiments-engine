@@ -11,13 +11,14 @@ from sqlalchemy import (
     delete,
     select,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..models import (
     ArmBaseDB,
     Base,
+    DrawsBaseDB,
     ExperimentBaseDB,
     NotificationsDB,
     ObservationsBaseDB,
@@ -48,6 +49,9 @@ class ContextualBanditDB(ExperimentBaseDB):
 
     observations: Mapped[list["ContextualObservationDB"]] = relationship(
         "ContextualObservationDB", back_populates="experiment", lazy="joined"
+    )
+    draws: Mapped[list["ContextualDrawDB"]] = relationship(
+        "ContextualDrawDB", back_populates="experiment", lazy="joined"
     )
 
     __mapper_args__ = {"polymorphic_identity": "contextual_mabs"}
@@ -95,6 +99,9 @@ class ContextualArmDB(ArmBaseDB):
     )
     observations: Mapped[list["ContextualObservationDB"]] = relationship(
         "ContextualObservationDB", back_populates="arm", lazy="joined"
+    )
+    draws: Mapped[list["ContextualDrawDB"]] = relationship(
+        "ContextualDrawDB", back_populates="arm", lazy="joined"
     )
 
     __mapper_args__ = {"polymorphic_identity": "contextual_arms"}
@@ -146,6 +153,43 @@ class ContextDB(Base):
             "name": self.name,
             "description": self.description,
             "value_type": self.value_type,
+        }
+
+
+class ContextualDrawDB(DrawsBaseDB):
+    """
+    ORM for managing draws of an experiment
+    """
+
+    __tablename__ = "contextual_draws"
+
+    draw_id: Mapped[str] = mapped_column(
+        ForeignKey("draws_base.draw_id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+
+    context_val: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    arm: Mapped[ContextualArmDB] = relationship(
+        "ContextualArmDB", back_populates="draws", lazy="joined"
+    )
+    experiment: Mapped[ContextualBanditDB] = relationship(
+        "ContextualBanditDB", back_populates="draws", lazy="joined"
+    )
+
+    __mapper_args__ = {"polymorphic_identity": "contextual_draws"}
+
+    def to_dict(self) -> dict:
+        """
+        Convert the ORM object to a dictionary.
+        """
+        return {
+            "draw_id": self.draw_id,
+            "draw_datetime_utc": self.draw_datetime_utc,
+            "context_val": self.context_val,
+            "arm_id": self.arm_id,
+            "experiment_id": self.experiment_id,
+            "user_id": self.user_id,
         }
 
 
@@ -381,3 +425,46 @@ async def get_all_contextual_obs_by_experiment_id(
     )
 
     return (await asession.execute(statement)).unique().scalars().all()
+
+
+async def get_draw_by_id(
+    draw_id: str, user_id: int, asession: AsyncSession
+) -> ContextualDrawDB | None:
+    """
+    Get the draw by id.
+    """
+    statement = (
+        select(ContextualDrawDB)
+        .where(ContextualDrawDB.user_id == user_id)
+        .where(ContextualDrawDB.draw_id == draw_id)
+    )
+    result = await asession.execute(statement)
+
+    return result.unique().scalar_one_or_none()
+
+
+async def save_draw_to_db(
+    experiment_id: int,
+    arm_id: int,
+    context_val: dict[int, float],
+    draw_id: str,
+    user_id: int,
+    asession: AsyncSession,
+) -> ContextualDrawDB:
+    """
+    Save the draw to the database.
+    """
+    draw_db = ContextualDrawDB(
+        arm_id=arm_id,
+        experiment_id=experiment_id,
+        user_id=user_id,
+        context_val=context_val,
+        draw_datetime_utc=datetime.now(timezone.utc),
+        draw_id=draw_id,
+    )
+
+    asession.add(draw_db)
+    await asession.commit()
+    await asession.refresh(draw_db)
+
+    return draw_db
