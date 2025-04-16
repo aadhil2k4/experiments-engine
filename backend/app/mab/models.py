@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..models import (
     ArmBaseDB,
+    DrawsBaseDB,
     ExperimentBaseDB,
     NotificationsDB,
     ObservationsBaseDB,
@@ -39,6 +40,10 @@ class MultiArmedBanditDB(ExperimentBaseDB):
 
     observations: Mapped[list["MABObservationDB"]] = relationship(
         "MABObservationDB", back_populates="experiment", lazy="joined"
+    )
+
+    draws: Mapped[list["MABDrawDB"]] = relationship(
+        "MABDrawDB", back_populates="experiment", lazy="joined"
     )
 
     __mapper_args__ = {"polymorphic_identity": "mabs"}
@@ -88,6 +93,10 @@ class MABArmDB(ArmBaseDB):
         "MABObservationDB", back_populates="arm", lazy="joined"
     )
 
+    draws: Mapped[list["MABDrawDB"]] = relationship(
+        "MABDrawDB", back_populates="arm", lazy="joined"
+    )
+
     __mapper_args__ = {"polymorphic_identity": "mab_arms"}
 
     def to_dict(self) -> dict:
@@ -103,6 +112,41 @@ class MABArmDB(ArmBaseDB):
             "mu": self.mu,
             "sigma": self.sigma,
             "observations": [obs.to_dict() for obs in self.observations],
+        }
+
+
+class MABDrawDB(DrawsBaseDB):
+    """
+    ORM for managing draws of an experiment
+    """
+
+    __tablename__ = "mab_draws"
+
+    draw_id: Mapped[str] = mapped_column(
+        ForeignKey("draws_base.draw_id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+
+    arm: Mapped[MABArmDB] = relationship(
+        "MABArmDB", back_populates="draws", lazy="joined"
+    )
+    experiment: Mapped[MultiArmedBanditDB] = relationship(
+        "MultiArmedBanditDB", back_populates="draws", lazy="joined"
+    )
+
+    __mapper_args__ = {"polymorphic_identity": "mab_draws"}
+
+    def to_dict(self) -> dict:
+        """
+        Convert the ORM object to a dictionary.
+        """
+        return {
+            "draw_id": self.draw_id,
+            "draw_datetime_utc": self.draw_datetime_utc,
+            "arm_id": self.arm_id,
+            "experiment_id": self.experiment_id,
+            "user_id": self.user_id,
         }
 
 
@@ -302,3 +346,50 @@ async def get_all_rewards_by_experiment_id(
     )
 
     return (await asession.execute(statement)).unique().scalars().all()
+
+
+async def get_draw_by_id(
+    draw_id: str, user_id: int, asession: AsyncSession
+) -> MABDrawDB | None:
+    """
+    Get a draw by its ID
+    """
+    statement = (
+        select(MABDrawDB)
+        .where(MABDrawDB.draw_id == draw_id)
+        .where(MABDrawDB.user_id == user_id)
+    )
+    result = await asession.execute(statement)
+    draw = result.scalars().first()
+
+    if not draw:
+        return None
+
+    return draw
+
+
+async def save_draw_to_db(
+    experiment_id: int,
+    arm_id: int,
+    draw_id: str,
+    user_id: int,
+    asession: AsyncSession,
+) -> MABDrawDB:
+    """
+    Save a draw to the database
+    """
+
+    draw_datetime_utc: datetime = datetime.now(timezone.utc)
+
+    draw = MABDrawDB(
+        experiment_id=experiment_id,
+        user_id=user_id,
+        arm_id=arm_id,
+        draw_datetime_utc=draw_datetime_utc,
+    )
+
+    asession.add(draw)
+    await asession.commit()
+    await asession.refresh(draw)
+
+    return draw

@@ -210,3 +210,12 @@ class MABObservationResponse(MABObservation):
     observed_datetime_utc: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MABDrawResponse(BaseModel):
+    """
+    Pydantic model for the response of the draw endpoint.
+    """
+
+    draw_id: str
+    arm: ArmResponse

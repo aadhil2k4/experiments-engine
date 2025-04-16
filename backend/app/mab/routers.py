@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
@@ -14,13 +15,16 @@ from .models import (
     delete_mab_by_id,
     get_all_mabs,
     get_all_rewards_by_experiment_id,
+    get_draw_by_id,
     get_mab_by_id,
+    save_draw_to_db,
     save_mab_to_db,
     save_observation_to_db,
 )
 from .sampling_utils import choose_arm, update_arm_params
 from .schemas import (
     ArmResponse,
+    MABDrawResponse,
     MABObservation,
     MABObservationResponse,
     MultiArmedBandit,
@@ -134,14 +138,20 @@ async def delete_mab(
         raise HTTPException(status_code=500, detail=f"Error: {e}") from e
 
 
-@router.get("/{experiment_id}/draw", response_model=ArmResponse)
+## How to a draw
+## Accept a post request
+## If draw_id is provided then check if unique and use that
+## if not provided, then generate it
+## Return the arm and the draw_id
+@router.get("/{experiment_id}/draw", response_model=MABDrawResponse)
 async def draw_arm(
     experiment_id: int,
+    draw_id: Optional[str] = None,
     user_db: UserDB = Depends(authenticate_key),
     asession: AsyncSession = Depends(get_async_session),
-) -> ArmResponse:
+) -> MABDrawResponse:
     """
-    Get which arm to pull next for provided experiment.
+    Draw an arm for the provided experiment.
     """
     experiment = await get_mab_by_id(experiment_id, user_db.user_id, asession)
     if experiment is None:
@@ -150,7 +160,38 @@ async def draw_arm(
         )
     experiment_data = MultiArmedBanditSample.model_validate(experiment)
     chosen_arm = choose_arm(experiment=experiment_data)
-    return ArmResponse.model_validate(experiment.arms[chosen_arm])
+
+    # Generate UUID if not provided
+    if draw_id is None:
+        draw_id = str(uuid4())
+
+    existing_draw = await get_draw_by_id(draw_id, user_db.user_id, asession)
+    if existing_draw:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Draw ID {draw_id} already exists.",
+        )
+
+    try:
+        _ = save_draw_to_db(
+            experiment_id=experiment.experiment_id,
+            arm_id=experiment.arms[chosen_arm].arm_id,
+            draw_id=draw_id,
+            user_id=user_db.user_id,
+            asession=asession,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error saving draw to database: {e}",
+        ) from e
+
+    return MABDrawResponse.model_validate(
+        {
+            "draw_id": draw_id,
+            "arm": ArmResponse.model_validate(experiment.arms[chosen_arm]),
+        }
+    )
 
 
 @router.put("/{experiment_id}/{arm_id}/{outcome}", response_model=ArmResponse)

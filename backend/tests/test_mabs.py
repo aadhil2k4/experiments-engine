@@ -202,7 +202,22 @@ class TestMab:
         )
         assert response.status_code == expected_response
 
-    def test_draw_arm(self, client: TestClient, create_mabs: list) -> None:
+    def test_draw_arm_draw_id_provided(
+        self, client: TestClient, create_mabs: list
+    ) -> None:
+        id = create_mabs[0]["experiment_id"]
+        api_key = os.environ.get("ADMIN_API_KEY", "")
+        response = client.get(
+            f"/mab/{id}/draw",
+            params={"draw_id": "test_draw"},
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["draw_id"] == "test_draw"
+
+    def test_draw_arm_no_draw_id_provided(
+        self, client: TestClient, create_mabs: list
+    ) -> None:
         id = create_mabs[0]["experiment_id"]
         api_key = os.environ.get("ADMIN_API_KEY", "")
         response = client.get(
@@ -210,6 +225,7 @@ class TestMab:
             headers={"Authorization": f"Bearer {api_key}"},
         )
         assert response.status_code == 200
+        assert len(response.json()["draw_id"]) == 36
 
 
 class TestNotifications:

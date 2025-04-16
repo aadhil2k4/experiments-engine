@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Sequence
 
@@ -75,6 +76,40 @@ class ArmBaseDB(Base):
     __mapper_args__ = {
         "polymorphic_identity": "arm",
         "polymorphic_on": "arm_type",
+    }
+
+
+class DrawsBaseDB(Base):
+    """
+    Base model for draws.
+    """
+
+    __tablename__ = "draws_base"
+
+    draw_id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda x: str(uuid.uuid4())
+    )
+
+    arm_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("arms_base.arm_id"), nullable=False
+    )
+    experiment_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("experiments_base.experiment_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"), nullable=False
+    )
+
+    draw_datetime_utc: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    draw_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
+
+    __mapper_args__ = {
+        "polymorphic_identity": "draw",
+        "polymorphic_on": "draw_type",
     }
 
 
