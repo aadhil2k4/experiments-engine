@@ -268,7 +268,6 @@ async def update_arm(
         )
 
     arm_id = draw.arm_id
-    logger.error("draw_context: %s", draw.context_val)
 
     # Get and validate arm
     arms = [a for a in experiment.arms if a.arm_id == arm_id]
@@ -290,7 +289,6 @@ async def update_arm(
     contexts = [obs.context_val for obs in all_obs]
     contexts.append(draw.context_val)
 
-    logger.error("contexts: %s", contexts)
     # Update the arm
     mu, covariance = update_arm_params(
         arm=ContextualArmResponse.model_validate(arm),
