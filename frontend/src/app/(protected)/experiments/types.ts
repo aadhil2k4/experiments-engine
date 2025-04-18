@@ -47,6 +47,10 @@ interface ExperimentStateBase {
   name: string;
   description: string;
   methodType: MethodType;
+  stickyAssignment: boolean;
+  autoFail: boolean;
+  autoFailValue: number;
+  autoFailUnit: "days" | "hours";
   priorType: PriorType;
   rewardType: RewardType;
 }

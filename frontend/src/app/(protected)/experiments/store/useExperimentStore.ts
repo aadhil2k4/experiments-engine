@@ -51,6 +51,10 @@ interface ExperimentStore {
   updateName: (name: string) => void;
   updateDescription: (description: string) => void;
   updateMethodType: (methodType: MethodType) => void;
+  updateStickyAssignment: (stickyAssignment: boolean) => void;
+  updateAutoFail: (autoFail: boolean) => void;
+  updateAutoFailValue: (autoFailValue: number) => void;
+  updateAutoFailUnit: (autoFailUnit: "hours" | "days") => void;
 
   // Prior and reward type page
   updatePriorType: (priorType: PriorType) => void;
@@ -83,7 +87,14 @@ interface ExperimentStore {
 }
 
 const createInitialState = (): ExperimentState => {
-  const baseDescr = { name: "", description: "" };
+  const baseDescr = {
+    name: "",
+    description: "",
+    stickyAssignment: false,
+    autoFail: false,
+    autoFailValue: 10,
+    autoFailUnit: "days",
+  };
   const methodType: MethodType = "mab";
   const priorType: PriorType = "beta";
   const rewardType: RewardType = "binary";
@@ -126,6 +137,35 @@ export const useExperimentStore = create<ExperimentStore>()(
       updateDescription: (description: string) =>
         set((state) => ({
           experimentState: { ...state.experimentState, description },
+        })),
+
+      updateStickyAssignment: (stickyAssignment: boolean) =>
+        set((state) => ({
+          experimentState: {
+            ...state.experimentState,
+            stickyAssignment,
+          },
+        })),
+
+      updateAutoFail: (autoFail: boolean) =>
+        set((state) => ({
+          experimentState: { ...state.experimentState, autoFail },
+        })),
+
+      updateAutoFailValue: (autoFailValue: number) =>
+        set((state) => ({
+          experimentState: {
+            ...state.experimentState,
+            autoFailValue,
+          },
+        })),
+
+      updateAutoFailUnit: (autoFailUnit: "hours" | "days") =>
+        set((state) => ({
+          experimentState: {
+            ...state.experimentState,
+            autoFailUnit,
+          },
         })),
 
       // ------------ Method type update ------------

@@ -4,26 +4,70 @@ import {
   FieldGroup,
   Fieldset,
   Label,
-  Description,
 } from "@/components/catalyst/fieldset";
 import { useState, useEffect, useCallback } from "react";
-import { Radio, RadioField, RadioGroup } from "@/components/catalyst/radio";
 import { Input } from "@/components/catalyst/input";
 import { Textarea } from "@/components/catalyst/textarea";
 import { AllSteps } from "./addExperimentSteps";
 import { Heading } from "@/components/catalyst/heading";
 import { StepValidation } from "../../types";
+import { MethodCard } from "./methodCard";
+import { Switch } from "@/components/ui/switch";
+import { DividerWithTitle } from "@/components/Dividers";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Methods = typeof AllSteps;
-
+// Method information with detailed descriptions
+const methodInfo = {
+  mab: {
+    title: "Multi-armed Bandit",
+    description:
+      "A method that automatically converges to the best performing arm.",
+    infoTitle: "About Multi-armed Bandit",
+    infoDescription:
+      "Multi-armed bandit algorithms balance exploration (trying different options) and exploitation (selecting the best known option). They're ideal for scenarios where you want to maximize rewards while learning which option performs best. The algorithm automatically adjusts allocation to favor better performing options over time, minimizing opportunity cost compared to traditional A/B testing.",
+    disabled: false,
+  },
+  cmab: {
+    title: "Contextual Bandit",
+    description:
+      "A method that automatically converges to the best performing arm conditional on context.",
+    infoTitle: "About Contextual Bandit",
+    infoDescription:
+      "Contextual bandits extend the multi-armed bandit approach by considering contextual information when making decisions. This allows the algorithm to learn which option performs best in specific contexts or for specific user segments. It's particularly useful when different users or situations might respond differently to the same options.",
+    disabled: false,
+  },
+  ab: {
+    title: "A/B Testing",
+    description:
+      "A method that compares two or more variants against each other.",
+    infoTitle: "About A/B Testing",
+    infoDescription:
+      "A/B testing is a controlled experiment where two or more variants are shown to users at random to determine which performs better according to predefined metrics. Unlike bandit methods, A/B tests typically maintain fixed traffic allocation throughout the experiment duration, focusing on statistical significance rather than reward maximization.",
+    disabled: true,
+  },
+};
 export default function AddBasicInfo({
   onValidate,
 }: {
-  setMethodType: (method: keyof Methods) => void;
   onValidate: (validation: StepValidation) => void;
 }) {
-  const { experimentState, updateName, updateDescription, updateMethodType } =
-    useExperimentStore();
+  const {
+    experimentState,
+    updateName,
+    updateDescription,
+    updateMethodType,
+    updateStickyAssignment,
+    updateAutoFail,
+    updateAutoFailValue,
+    updateAutoFailUnit,
+  } = useExperimentStore();
   const [errors, setErrors] = useState({
     name: "",
     description: "",
@@ -100,41 +144,121 @@ export default function AddBasicInfo({
             )}
           </Field>
         </FieldGroup>
+        <div className="mt-6">
+          <Label className="mb-3 font-medium">Select experiment type</Label>
+          <div
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            role="radiogroup"
+            aria-required="true"
+            aria-label="Experiment type"
+          >
+            {(Object.keys(methodInfo) as Array<keyof typeof methodInfo>).map(
+              (method) => (
+                <MethodCard
+                  key={method}
+                  title={methodInfo[method].title}
+                  description={methodInfo[method].description}
+                  infoTitle={methodInfo[method].infoTitle}
+                  infoDescription={methodInfo[method].infoDescription}
+                  selected={experimentState.methodType === method}
+                  disabled={methodInfo[method].disabled}
+                  onClick={() => updateMethodType(method as keyof Methods)}
+                />
+              )
+            )}
+          </div>
+          {errors.methodType ? (
+            <p className="text-red-500 text-xs mt-2">{errors.methodType}</p>
+          ) : (
+            <p className="text-red-500 text-xs mt-2">&nbsp;</p>
+          )}
+        </div>
+        <DividerWithTitle title="Other options" />
 
-        <RadioGroup
-          name="experiment-method"
-          value={experimentState.methodType}
-          onChange={(value) => updateMethodType(value as keyof Methods)}
-        >
-          <Label>Select experiment type</Label>
-          <RadioField>
-            <Radio id="mab" value="mab" />
-            <Label htmlFor="mab">Multi-armed Bandit</Label>
-            <Description>
-              A method that automatically converges to the best performing arm.
-            </Description>
-          </RadioField>
-          <RadioField>
-            <Radio id="cmab" value="cmab" />
-            <Label htmlFor="cmab">Contextual Bandit</Label>
-            <Description>
-              A method that automatically converges to the best performing arm
-              conditional on context.
-            </Description>
-          </RadioField>
-          <RadioField>
-            <Radio id="ab-test" value="ab" disabled />
-            <Label htmlFor="ab-test">[Coming soon] A/B Testing</Label>
-            <Description>
-              A method that compares two or more variants against each other.
-            </Description>
-          </RadioField>
-        </RadioGroup>
-        {errors.methodType ? (
-          <p className="text-red-500 text-xs mt-1">{errors.methodType}</p>
-        ) : (
-          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
-        )}
+        {/* Sticky Assignment Switch */}
+        <div className="mt-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5 pr-2">
+              <Label htmlFor="sticky-assignment" className="text-base">
+                Enable sticky assignment
+              </Label>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Ensures users consistently see the same variant across sessions
+              </p>
+            </div>
+            <Switch
+              id="sticky-assignment"
+              checked={experimentState.stickyAssignment}
+              onCheckedChange={updateStickyAssignment}
+            />
+          </div>
+
+          {/* Auto Fail After Switch with Input and Dropdown */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5 pr-2">
+                <Label htmlFor="auto-fail" className="text-base">
+                  Auto fail after
+                </Label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Automatically fail the experiment after a specified time
+                  period if there has been no outcome recorded.
+                </p>
+              </div>
+              <Switch
+                id="auto-fail"
+                checked={experimentState.autoFail}
+                onCheckedChange={updateAutoFail}
+              />
+            </div>
+
+            {/* Always reserve space for the input fields */}
+            <div className="h-[44px] mt-2">
+              {/* Actual input fields with opacity transition */}
+              <div
+                className="flex flex-wrap items-center gap-3 transition-opacity duration-200 ease-in-out"
+                style={{
+                  opacity: experimentState.autoFail ? 1 : 0,
+                  pointerEvents: experimentState.autoFail ? "auto" : "none",
+                  position: "relative",
+                  zIndex: experimentState.autoFail ? 1 : -1,
+                }}
+              >
+                <div className="w-24">
+                  <Input
+                    type="number"
+                    value={experimentState.autoFailValue}
+                    onChange={(e) => {
+                      const numValue = Number.parseInt(e.target.value, 10) || 0;
+                      updateAutoFailValue(numValue);
+                    }}
+                    min="1"
+                    aria-hidden={!experimentState.autoFail}
+                    tabIndex={experimentState.autoFail ? 0 : -1}
+                  />
+                </div>
+                <div className="w-32">
+                  <Select
+                    value={experimentState.autoFailUnit}
+                    onValueChange={updateAutoFailUnit}
+                    disabled={!experimentState.autoFail}
+                  >
+                    <SelectTrigger
+                      aria-hidden={!experimentState.autoFail}
+                      tabIndex={experimentState.autoFail ? 0 : -1}
+                    >
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hours">Hours</SelectItem>
+                      <SelectItem value="days">Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </Fieldset>
     </div>
   );
