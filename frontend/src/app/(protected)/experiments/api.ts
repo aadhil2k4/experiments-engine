@@ -26,7 +26,7 @@ const createNewExperiment = async ({
     const baseData = {
       name: data.name,
       description: data.description,
-      stickyAssignment: data.stickyAssignment,
+      sticky_assignment: data.stickyAssignment,
       auto_fail: data.autoFail,
       auto_fail_value: data.autoFailValue,
       auto_fail_unit: data.autoFailUnit,

@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..schemas import (
     ArmPriors,
+    AutoFailUnitType,
     Notifications,
     NotificationsResponse,
     RewardLikelihood,
@@ -93,6 +94,29 @@ class MultiArmedBanditBase(BaseModel):
         examples=["This is a description of the experiment."],
     )
 
+    sticky_assignment: bool = Field(
+        description="Whether the arm assignment is sticky or not.",
+        default=False,
+    )
+
+    auto_fail: bool = Field(
+        description=(
+            "Whether the experiment should fail automatically after "
+            "a certain period if no outcome is registered."
+        ),
+        default=False,
+    )
+
+    auto_fail_value: Optional[int] = Field(
+        description="The time period after which the experiment should fail.",
+        default=None,
+    )
+
+    auto_fail_unit: Optional[AutoFailUnitType] = Field(
+        description="The time unit for the auto fail period.",
+        default=None,
+    )
+
     reward_type: RewardLikelihood = Field(
         description="The type of reward we observe from the experiment.",
         default=RewardLikelihood.BERNOULLI,
@@ -114,6 +138,25 @@ class MultiArmedBandit(MultiArmedBanditBase):
 
     arms: list[Arm]
     notifications: Notifications
+
+    @model_validator(mode="after")
+    def auto_fail_unit_and_value_set(self) -> Self:
+        """
+        Validate that the auto fail unit and value are set if auto fail is True.
+        """
+        if self.auto_fail:
+            if (
+                not self.auto_fail_value
+                or not self.auto_fail_unit
+                or self.auto_fail_value <= 0
+            ):
+                raise ValueError(
+                    (
+                        "Auto fail is enabled. "
+                        "Please provide both auto_fail_value and auto_fail_unit."
+                    )
+                )
+        return self
 
     @model_validator(mode="after")
     def arms_at_least_two(self) -> Self:

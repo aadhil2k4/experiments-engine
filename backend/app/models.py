@@ -15,7 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from .schemas import EventType, Notifications, ObservationType
+from .schemas import AutoFailUnitType, EventType, Notifications, ObservationType
 
 
 class Base(DeclarativeBase):
@@ -36,6 +36,15 @@ class ExperimentBaseDB(Base):
     )
     name: Mapped[str] = mapped_column(String(length=150), nullable=False)
     description: Mapped[str] = mapped_column(String(length=500), nullable=False)
+    sticky_assignment: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    auto_fail: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    auto_fail_value: Mapped[int] = mapped_column(Integer, nullable=True)
+    auto_fail_unit: Mapped[AutoFailUnitType] = mapped_column(
+        Enum(AutoFailUnitType), nullable=True
+    )
+
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.user_id"), nullable=False
     )
