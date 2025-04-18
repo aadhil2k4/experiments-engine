@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Optional, Sequence
 from uuid import uuid4
 
+import numpy as np
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,9 @@ from ..schemas import ContextType, NotificationsResponse, Outcome
 from ..users.models import UserDB
 from ..utils import setup_logger
 from .models import (
+    ContextualArmDB,
+    ContextualBanditDB,
+    ContextualDrawDB,
     delete_contextual_mab_by_id,
     get_all_contextual_mabs,
     get_all_contextual_obs_by_experiment_id,
@@ -233,63 +237,23 @@ async def update_arm(
 ) -> ContextualArmResponse:
     """
     Update the arm with the provided `arm_id` for the given
-    `experiment_id` based on the `outcome`.
+    `experiment_id` based on the reward.
     """
-    # Get the experiment and do checks
-    experiment = await get_contextual_mab_by_id(
-        experiment_id, user_db.user_id, asession
+    experiment, draw = await validate_experiment_and_draw(
+        experiment_id, draw_id, user_db.user_id, asession
     )
-    if experiment is None:
-        raise HTTPException(
-            status_code=404, detail=f"Experiment with id {experiment_id} not found"
-        )
 
-    experiment.n_trials += 1
-    experiment.last_trial_datetime_utc = datetime.now(tz=timezone.utc)
-    experiment_data = ContextualBanditSample.model_validate(experiment)
+    update_experiment_metadata(experiment)
 
-    draw = await get_draw_by_id(
-        draw_id=draw_id, user_id=user_db.user_id, asession=asession
-    )
-    if draw is None:
-        raise HTTPException(status_code=404, detail=f"Draw with id {draw_id} not found")
-    if draw.experiment_id != experiment_id:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Draw with id {draw_id} does not belong "
-                f"to experiment with id {experiment_id}",
-            ),
-        )
-    if draw.reward is not None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Draw with id {draw_id} already has a reward.",
-        )
-
-    arm_id = draw.arm_id
-
-    # Get and validate arm
-    arms = [a for a in experiment.arms if a.arm_id == arm_id]
-    if not arms:
-        raise HTTPException(status_code=404, detail=f"Arm with id {arm_id} not found")
-
-    arm = arms[0]
+    arm = get_arm_from_experiment(experiment, draw.arm_id)
     arm.n_outcomes += 1
 
-    # Get all observations for the arm
-    all_obs = await get_contextual_obs_by_experiment_arm_id(
-        experiment_id=experiment_id,
-        arm_id=arm_id,
-        user_id=user_db.user_id,
-        asession=asession,
+    # Get data for arm update
+    all_obs, contexts, rewards = await prepare_data_for_arm_update(
+        experiment_id, arm.arm_id, user_db.user_id, asession, draw, reward
     )
-    rewards = [obs.reward for obs in all_obs] + [reward]
 
-    contexts = [obs.context_val for obs in all_obs]
-    contexts.append(draw.context_val)
-
-    # Update the arm
+    experiment_data = ContextualBanditSample.model_validate(experiment)
     mu, covariance = update_arm_params(
         arm=ContextualArmResponse.model_validate(arm),
         prior_type=experiment_data.prior_type,
@@ -298,14 +262,7 @@ async def update_arm(
         reward=rewards,
     )
 
-    # Update the arm in the database
-    arm.mu = mu.tolist()
-    arm.covariance = covariance.tolist()
-    asession.add(arm)
-    await asession.commit()
-
-    # Save the observation
-    await save_contextual_obs_to_db(draw, reward, asession)
+    await save_updated_data(arm, mu, covariance, draw, reward, asession)
 
     return ContextualArmResponse.model_validate(arm)
 
@@ -336,3 +293,91 @@ async def get_outcomes(
         asession=asession,
     )
     return [CMABObservationResponse.model_validate(obs) for obs in observations]
+
+
+async def validate_experiment_and_draw(
+    experiment_id: int, draw_id: str, user_id: int, asession: AsyncSession
+) -> tuple[ContextualBanditDB, ContextualDrawDB]:
+    """Validate the experiment and draw"""
+    experiment = await get_contextual_mab_by_id(experiment_id, user_id, asession)
+    if experiment is None:
+        raise HTTPException(
+            status_code=404, detail=f"Experiment with id {experiment_id} not found"
+        )
+
+    draw = await get_draw_by_id(draw_id=draw_id, user_id=user_id, asession=asession)
+    if draw is None:
+        raise HTTPException(status_code=404, detail=f"Draw with id {draw_id} not found")
+
+    if draw.experiment_id != experiment_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Draw with id {draw_id} does not belong "
+                f"to experiment with id {experiment_id}",
+            ),
+        )
+
+    if draw.reward is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Draw with id {draw_id} already has a reward.",
+        )
+
+    return experiment, draw
+
+
+def update_experiment_metadata(experiment: ContextualBanditDB) -> None:
+    """Update experiment metadata with new trial information"""
+    experiment.n_trials += 1
+    experiment.last_trial_datetime_utc = datetime.now(tz=timezone.utc)
+
+
+def get_arm_from_experiment(
+    experiment: ContextualBanditDB, arm_id: int
+) -> ContextualArmDB:
+    """Get and validate the arm from the experiment"""
+    arms = [a for a in experiment.arms if a.arm_id == arm_id]
+    if not arms:
+        raise HTTPException(status_code=404, detail=f"Arm with id {arm_id} not found")
+    return arms[0]
+
+
+async def prepare_data_for_arm_update(
+    experiment_id: int,
+    arm_id: int,
+    user_id: int,
+    asession: AsyncSession,
+    draw: ContextualDrawDB,
+    reward: float,
+) -> tuple[Sequence[ContextualDrawDB], list[list], list[float]]:
+    """Prepare the data needed for updating arm parameters"""
+    all_obs = await get_contextual_obs_by_experiment_arm_id(
+        experiment_id=experiment_id,
+        arm_id=arm_id,
+        user_id=user_id,
+        asession=asession,
+    )
+
+    rewards = [obs.reward for obs in all_obs] + [reward]
+    contexts = [obs.context_val for obs in all_obs]
+    contexts.append(draw.context_val)
+
+    return all_obs, contexts, rewards
+
+
+async def save_updated_data(
+    arm: ContextualArmDB,
+    mu: np.ndarray,
+    covariance: np.ndarray,
+    draw: ContextualDrawDB,
+    reward: float,
+    asession: AsyncSession,
+) -> None:
+    """Save the updated arm and observation data"""
+    arm.mu = mu.tolist()
+    arm.covariance = covariance.tolist()
+    asession.add(arm)
+    await asession.commit()
+
+    await save_contextual_obs_to_db(draw, reward, asession)

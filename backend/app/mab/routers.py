@@ -13,6 +13,9 @@ from ..schemas import NotificationsResponse, Outcome, RewardLikelihood
 from ..users.models import UserDB
 from ..utils import setup_logger
 from .models import (
+    MABArmDB,
+    MABDrawDB,
+    MultiArmedBanditDB,
     delete_mab_by_id,
     get_all_mabs,
     get_all_rewards_by_experiment_id,
@@ -158,7 +161,6 @@ async def draw_arm(
     experiment_data = MultiArmedBanditSample.model_validate(experiment)
     chosen_arm = choose_arm(experiment=experiment_data)
 
-    # Generate UUID if not provided
     if draw_id is None:
         draw_id = str(uuid4())
 
@@ -203,75 +205,18 @@ async def update_arm(
     Update the arm with the provided `arm_id` for the given
     `experiment_id` based on the `outcome`.
     """
-    # Get and validate experiment
-    experiment = await get_mab_by_id(experiment_id, user_db.user_id, asession)
-    if experiment is None:
-        raise HTTPException(
-            status_code=404, detail=f"Experiment with id {experiment_id} not found"
-        )
-    experiment.n_trials += 1
-    experiment.last_trial_datetime_utc = datetime.now(tz=timezone.utc)
-    experiment_data = MultiArmedBanditSample.model_validate(experiment)
-
-    # Get draw
-    draw = await get_draw_by_id(
-        draw_id=draw_id, user_id=user_db.user_id, asession=asession
+    experiment, draw = await validate_experiment_and_draw(
+        experiment_id, draw_id, user_db.user_id, asession
     )
-    if draw is None:
-        raise HTTPException(status_code=404, detail=f"Draw with id {draw_id} not found")
-    if draw.experiment_id != experiment_id:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Draw with id {draw_id} does not belong "
-                f"to experiment with id {experiment_id}",
-            ),
-        )
-    if draw.reward is not None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Draw with id {draw_id} has already has an outcome.",
-        )
 
-    arm_id = draw.arm_id
+    update_experiment_metadata(experiment)
 
-    # Get and validate arm
-    arms = [a for a in experiment.arms if a.arm_id == arm_id]
-    if not arms:
-        raise HTTPException(status_code=404, detail=f"Arm with id {arm_id} not found")
-
-    arm = arms[0]
+    arm = get_arm_from_experiment(experiment, draw.arm_id)
     arm.n_outcomes += 1
 
-    # Update arm based on reward type
-    if experiment_data.reward_type == RewardLikelihood.BERNOULLI:
-        Outcome(outcome)  # Check if reward is 0 or 1
-        arm.alpha, arm.beta = update_arm_params(
-            ArmResponse.model_validate(arm),
-            experiment_data.prior_type,
-            experiment_data.reward_type,
-            outcome,
-        )
-
-    elif experiment_data.reward_type == RewardLikelihood.NORMAL:
-        arm.mu, arm.sigma = update_arm_params(
-            ArmResponse.model_validate(arm),
-            experiment_data.prior_type,
-            experiment_data.reward_type,
-            outcome,
-        )
-
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Reward type not supported.",
-        )
-
-    # Save modified arm to database
-    asession.add(arm)
-    await asession.commit()
-
-    await save_observation_to_db(draw, outcome, asession)
+    experiment_data = MultiArmedBanditSample.model_validate(experiment)
+    await update_arm_parameters(arm, experiment_data, outcome)
+    await save_updated_data(arm, draw, outcome, asession)
 
     return ArmResponse.model_validate(arm)
 
@@ -301,3 +246,84 @@ async def get_outcomes(
     )
 
     return [MABObservationResponse.model_validate(reward) for reward in rewards]
+
+
+async def validate_experiment_and_draw(
+    experiment_id: int, draw_id: str, user_id: int, asession: AsyncSession
+) -> tuple[MultiArmedBanditDB, MABDrawDB]:
+    """Validate the experiment and draw"""
+    experiment = await get_mab_by_id(experiment_id, user_id, asession)
+    if experiment is None:
+        raise HTTPException(
+            status_code=404, detail=f"Experiment with id {experiment_id} not found"
+        )
+
+    draw = await get_draw_by_id(draw_id=draw_id, user_id=user_id, asession=asession)
+    if draw is None:
+        raise HTTPException(status_code=404, detail=f"Draw with id {draw_id} not found")
+
+    if draw.experiment_id != experiment_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Draw with id {draw_id} does not belong "
+                f"to experiment with id {experiment_id}",
+            ),
+        )
+
+    if draw.reward is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Draw with id {draw_id} has already has an outcome.",
+        )
+
+    return experiment, draw
+
+
+def update_experiment_metadata(experiment: MultiArmedBanditDB) -> None:
+    """Update experiment metadata with new trial information"""
+    experiment.n_trials += 1
+    experiment.last_trial_datetime_utc = datetime.now(tz=timezone.utc)
+
+
+def get_arm_from_experiment(experiment: MultiArmedBanditDB, arm_id: int) -> MABArmDB:
+    """Get and validate the arm from the experiment"""
+    arms = [a for a in experiment.arms if a.arm_id == arm_id]
+    if not arms:
+        raise HTTPException(status_code=404, detail=f"Arm with id {arm_id} not found")
+    return arms[0]
+
+
+async def update_arm_parameters(
+    arm: MABArmDB, experiment_data: MultiArmedBanditSample, outcome: float
+) -> None:
+    """Update the arm parameters based on the reward type and outcome"""
+    if experiment_data.reward_type == RewardLikelihood.BERNOULLI:
+        Outcome(outcome)  # Check if reward is 0 or 1
+        arm.alpha, arm.beta = update_arm_params(
+            ArmResponse.model_validate(arm),
+            experiment_data.prior_type,
+            experiment_data.reward_type,
+            outcome,
+        )
+    elif experiment_data.reward_type == RewardLikelihood.NORMAL:
+        arm.mu, arm.sigma = update_arm_params(
+            ArmResponse.model_validate(arm),
+            experiment_data.prior_type,
+            experiment_data.reward_type,
+            outcome,
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Reward type not supported.",
+        )
+
+
+async def save_updated_data(
+    arm: MABArmDB, draw: MABDrawDB, outcome: float, asession: AsyncSession
+) -> None:
+    """Save the updated arm and observation data"""
+    asession.add(arm)
+    await asession.commit()
+    await save_observation_to_db(draw, outcome, asession)
