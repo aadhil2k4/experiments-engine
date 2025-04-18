@@ -2,11 +2,20 @@ import uuid
 from datetime import datetime
 from typing import Sequence
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, select
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from .schemas import EventType, Notifications
+from .schemas import EventType, Notifications, ObservationType
 
 
 class Base(DeclarativeBase):
@@ -72,6 +81,7 @@ class ArmBaseDB(Base):
     name: Mapped[str] = mapped_column(String(length=150), nullable=False)
     description: Mapped[str] = mapped_column(String(length=500), nullable=False)
     arm_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
+    n_outcomes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     __mapper_args__ = {
         "polymorphic_identity": "arm",
@@ -105,41 +115,21 @@ class DrawsBaseDB(Base):
         nullable=False,
     )
 
+    observed_datetime_utc: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    observation_type: Mapped[ObservationType] = mapped_column(
+        Enum(ObservationType), nullable=True
+    )
+
     draw_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
+
+    reward: Mapped[float] = mapped_column(Float, nullable=True)
 
     __mapper_args__ = {
         "polymorphic_identity": "draw",
         "polymorphic_on": "draw_type",
-    }
-
-
-class ObservationsBaseDB(Base):
-    """
-    Base model for observations.
-    """
-
-    __tablename__ = "observations_base"
-
-    observation_id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, nullable=False
-    )
-    arm_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("arms_base.arm_id"), nullable=False
-    )
-    experiment_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("experiments_base.experiment_id"), nullable=False
-    )
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.user_id"), nullable=False
-    )
-    observed_datetime_utc: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    obs_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
-
-    __mapper_args__ = {
-        "polymorphic_identity": "observation",
-        "polymorphic_on": "obs_type",
     }
 
 

@@ -4,7 +4,6 @@ from typing import Sequence
 from sqlalchemy import (
     Float,
     ForeignKey,
-    Integer,
     and_,
     delete,
     select,
@@ -17,9 +16,9 @@ from ..models import (
     DrawsBaseDB,
     ExperimentBaseDB,
     NotificationsDB,
-    ObservationsBaseDB,
 )
-from .schemas import MABObservation, MultiArmedBandit
+from ..schemas import ObservationType
+from .schemas import MultiArmedBandit
 
 
 class MultiArmedBanditDB(ExperimentBaseDB):
@@ -36,10 +35,6 @@ class MultiArmedBanditDB(ExperimentBaseDB):
     )
     arms: Mapped[list["MABArmDB"]] = relationship(
         "MABArmDB", back_populates="experiment", lazy="joined"
-    )
-
-    observations: Mapped[list["MABObservationDB"]] = relationship(
-        "MABObservationDB", back_populates="experiment", lazy="joined"
     )
 
     draws: Mapped[list["MABDrawDB"]] = relationship(
@@ -84,13 +79,8 @@ class MABArmDB(ArmBaseDB):
     beta: Mapped[float] = mapped_column(Float, nullable=True)
     mu: Mapped[float] = mapped_column(Float, nullable=True)
     sigma: Mapped[float] = mapped_column(Float, nullable=True)
-    n_outcomes: Mapped[int] = mapped_column(Integer, nullable=False)
     experiment: Mapped[MultiArmedBanditDB] = relationship(
         "MultiArmedBanditDB", back_populates="arms", lazy="joined"
-    )
-
-    observations: Mapped[list["MABObservationDB"]] = relationship(
-        "MABObservationDB", back_populates="arm", lazy="joined"
     )
 
     draws: Mapped[list["MABDrawDB"]] = relationship(
@@ -111,7 +101,7 @@ class MABArmDB(ArmBaseDB):
             "beta": self.beta,
             "mu": self.mu,
             "sigma": self.sigma,
-            "observations": [obs.to_dict() for obs in self.observations],
+            "draws": [draw.to_dict() for draw in self.draws],
         }
 
 
@@ -147,39 +137,8 @@ class MABDrawDB(DrawsBaseDB):
             "arm_id": self.arm_id,
             "experiment_id": self.experiment_id,
             "user_id": self.user_id,
-        }
-
-
-class MABObservationDB(ObservationsBaseDB):
-    """
-    ORM for managing observations of an experiment
-    """
-
-    __tablename__ = "mab_observations"
-
-    observation_id: Mapped[int] = mapped_column(
-        ForeignKey("observations_base.observation_id", ondelete="CASCADE"),
-        primary_key=True,
-        nullable=False,
-    )
-
-    reward: Mapped[float] = mapped_column(Float, nullable=False)
-
-    arm: Mapped[MABArmDB] = relationship(
-        "MABArmDB", back_populates="observations", lazy="joined"
-    )
-    experiment: Mapped[MultiArmedBanditDB] = relationship(
-        "MultiArmedBanditDB", back_populates="observations", lazy="joined"
-    )
-    __mapper_args__ = {"polymorphic_identity": "mab_observations"}
-
-    def to_dict(self) -> dict:
-        """
-        Convert the ORM object to a dictionary.
-        """
-        return {
-            "observation_id": self.observation_id,
             "reward": self.reward,
+            "observation_type": self.observation_type,
             "observed_datetime_utc": self.observed_datetime_utc,
         }
 
@@ -264,11 +223,11 @@ async def delete_mab_by_id(
     )
 
     await asession.execute(
-        delete(MABObservationDB).where(
+        delete(MABDrawDB).where(
             and_(
-                MABObservationDB.observation_id == ObservationsBaseDB.observation_id,
-                ObservationsBaseDB.user_id == user_id,
-                ObservationsBaseDB.experiment_id == experiment_id,
+                MABDrawDB.draw_id == DrawsBaseDB.draw_id,
+                DrawsBaseDB.user_id == user_id,
+                DrawsBaseDB.experiment_id == experiment_id,
             )
         )
     )
@@ -294,39 +253,19 @@ async def delete_mab_by_id(
     return None
 
 
-async def save_observation_to_db(
-    observation: MABObservation,
-    user_id: int,
-    asession: AsyncSession,
-) -> MABObservationDB:
-    """
-    Save the observation to the database.
-    """
-    observation_db = MABObservationDB(
-        **observation.model_dump(),
-        user_id=user_id,
-        observed_datetime_utc=datetime.now(timezone.utc),
-    )
-
-    asession.add(observation_db)
-    await asession.commit()
-    await asession.refresh(observation_db)
-
-    return observation_db
-
-
 async def get_rewards_by_experiment_arm_id(
     experiment_id: int, arm_id: int, user_id: int, asession: AsyncSession
-) -> Sequence[MABObservationDB]:
+) -> Sequence[MABDrawDB]:
     """
     Get the observations for the experiment and arm.
     """
     statement = (
-        select(MABObservationDB)
-        .where(MABObservationDB.user_id == user_id)
-        .where(MABObservationDB.experiment_id == experiment_id)
-        .where(MABObservationDB.arm_id == arm_id)
-        .order_by(MABObservationDB.observed_datetime_utc)
+        select(MABDrawDB)
+        .where(MABDrawDB.user_id == user_id)
+        .where(MABDrawDB.experiment_id == experiment_id)
+        .where(MABDrawDB.reward.is_not(None))
+        .where(MABDrawDB.arm_id == arm_id)
+        .order_by(MABDrawDB.observed_datetime_utc)
     )
 
     return (await asession.execute(statement)).unique().scalars().all()
@@ -334,15 +273,16 @@ async def get_rewards_by_experiment_arm_id(
 
 async def get_all_rewards_by_experiment_id(
     experiment_id: int, user_id: int, asession: AsyncSession
-) -> Sequence[MABObservationDB]:
+) -> Sequence[MABDrawDB]:
     """
     Get the observations for the experiment and arm.
     """
     statement = (
-        select(MABObservationDB)
-        .where(MABObservationDB.user_id == user_id)
-        .where(MABObservationDB.experiment_id == experiment_id)
-        .order_by(MABObservationDB.observed_datetime_utc)
+        select(MABDrawDB)
+        .where(MABDrawDB.user_id == user_id)
+        .where(MABDrawDB.experiment_id == experiment_id)
+        .where(MABDrawDB.reward.is_not(None))
+        .order_by(MABDrawDB.observed_datetime_utc)
     )
 
     return (await asession.execute(statement)).unique().scalars().all()
@@ -378,12 +318,33 @@ async def save_draw_to_db(
     draw_datetime_utc: datetime = datetime.now(timezone.utc)
 
     draw = MABDrawDB(
+        draw_id=draw_id,
         experiment_id=experiment_id,
         user_id=user_id,
         arm_id=arm_id,
         draw_datetime_utc=draw_datetime_utc,
     )
 
+    asession.add(draw)
+    await asession.commit()
+    await asession.refresh(draw)
+
+    return draw
+
+
+async def save_observation_to_db(
+    draw: MABDrawDB,
+    reward: float,
+    asession: AsyncSession,
+    observation_type: ObservationType = ObservationType.AUTO,
+) -> MABDrawDB:
+    """
+    Save an observation to the database
+    """
+
+    draw.reward = reward
+    draw.observed_datetime_utc = datetime.now(timezone.utc)
+    draw.observation_type = ObservationType.USER
     asession.add(draw)
     await asession.commit()
     await asession.refresh(draw)

@@ -190,22 +190,14 @@ class ContextualBanditSample(ContextualBanditBase):
     contexts: list[ContextResponse]
 
 
-class CMABObservation(BaseModel):
+class CMABObservationResponse(BaseModel):
     """
-    Pydantic model for a contextual observation of the experiment.
+    Pydantic model for an response for contextual observation creation
     """
 
     arm_id: int
     reward: float
     context_val: list[float]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class CMABObservationResponse(CMABObservation):
-    """
-    Pydantic model for an response for contextual observation creation
-    """
 
     observation_id: int
     observed_datetime_utc: datetime

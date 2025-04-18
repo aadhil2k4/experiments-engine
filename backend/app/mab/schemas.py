@@ -189,24 +189,15 @@ class MultiArmedBanditSample(MultiArmedBanditBase):
     arms: list[ArmResponse]
 
 
-class MABObservation(BaseModel):
+class MABObservationResponse(BaseModel):
     """
-    Pydantic model for an observation of the experiment.
+    Pydantic model for binary observations of the experiment.
     """
 
     experiment_id: int
     arm_id: int
     reward: float
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class MABObservationResponse(MABObservation):
-    """
-    Pydantic model for binary observations of the experiment.
-    """
-
-    observation_id: int
+    draw_id: int
     observed_datetime_utc: datetime
 
     model_config = ConfigDict(from_attributes=True)

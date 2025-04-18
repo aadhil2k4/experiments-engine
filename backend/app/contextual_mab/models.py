@@ -11,7 +11,7 @@ from sqlalchemy import (
     delete,
     select,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,9 +21,9 @@ from ..models import (
     DrawsBaseDB,
     ExperimentBaseDB,
     NotificationsDB,
-    ObservationsBaseDB,
 )
-from .schemas import CMABObservation, ContextualBandit
+from ..schemas import ObservationType
+from .schemas import ContextualBandit
 
 
 class ContextualBanditDB(ExperimentBaseDB):
@@ -47,9 +47,6 @@ class ContextualBanditDB(ExperimentBaseDB):
         "ContextDB", back_populates="experiment", lazy="joined"
     )
 
-    observations: Mapped[list["ContextualObservationDB"]] = relationship(
-        "ContextualObservationDB", back_populates="experiment", lazy="joined"
-    )
     draws: Mapped[list["ContextualDrawDB"]] = relationship(
         "ContextualDrawDB", back_populates="experiment", lazy="joined"
     )
@@ -97,9 +94,6 @@ class ContextualArmDB(ArmBaseDB):
     experiment: Mapped[ContextualBanditDB] = relationship(
         "ContextualBanditDB", back_populates="arms", lazy="joined"
     )
-    observations: Mapped[list["ContextualObservationDB"]] = relationship(
-        "ContextualObservationDB", back_populates="arm", lazy="joined"
-    )
     draws: Mapped[list["ContextualDrawDB"]] = relationship(
         "ContextualDrawDB", back_populates="arm", lazy="joined"
     )
@@ -118,7 +112,7 @@ class ContextualArmDB(ArmBaseDB):
             "sigma_init": self.sigma_init,
             "mu": self.mu,
             "covariance": self.covariance,
-            "observations": [obs.to_dict() for obs in self.observations],
+            "draws": [draw.to_dict() for draw in self.draws],
         }
 
 
@@ -169,7 +163,7 @@ class ContextualDrawDB(DrawsBaseDB):
         nullable=False,
     )
 
-    context_val: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    context_val: Mapped[list] = mapped_column(ARRAY(Float), nullable=False)
     arm: Mapped[ContextualArmDB] = relationship(
         "ContextualArmDB", back_populates="draws", lazy="joined"
     )
@@ -190,44 +184,8 @@ class ContextualDrawDB(DrawsBaseDB):
             "arm_id": self.arm_id,
             "experiment_id": self.experiment_id,
             "user_id": self.user_id,
-        }
-
-
-class ContextualObservationDB(ObservationsBaseDB):
-    """
-    ORM for managing observations of an experiment
-    """
-
-    __tablename__ = "contextual_observations"
-
-    observation_id: Mapped[int] = mapped_column(
-        ForeignKey("observations_base.observation_id", ondelete="CASCADE"),
-        primary_key=True,
-        nullable=False,
-    )
-
-    reward: Mapped[float] = mapped_column(Float, nullable=False)
-
-    context_val: Mapped[list[float]] = mapped_column(ARRAY(Float), nullable=False)
-
-    experiment: Mapped[ContextualBanditDB] = relationship(
-        "ContextualBanditDB", back_populates="observations", lazy="joined"
-    )
-
-    arm: Mapped[ContextualArmDB] = relationship(
-        "ContextualArmDB", back_populates="observations", lazy="joined"
-    )
-
-    __mapper_args__ = {"polymorphic_identity": "contextual_observations"}
-
-    def to_dict(self) -> dict:
-        """
-        Convert the ORM object to a dictionary.
-        """
-        return {
-            "observation_id": self.observation_id,
             "reward": self.reward,
-            "context_val": self.context_val,
+            "observation_type": self.observation_type,
             "observed_datetime_utc": self.observed_datetime_utc,
         }
 
@@ -331,11 +289,11 @@ async def delete_contextual_mab_by_id(
     )
 
     await asession.execute(
-        delete(ContextualObservationDB).where(
+        delete(ContextualDrawDB).where(
             and_(
-                ContextualObservationDB.user_id == ObservationsBaseDB.user_id,
-                ContextualObservationDB.user_id == user_id,
-                ContextualObservationDB.experiment_id == experiment_id,
+                ContextualDrawDB.user_id == DrawsBaseDB.user_id,
+                ContextualDrawDB.user_id == user_id,
+                ContextualDrawDB.experiment_id == experiment_id,
             )
         )
     )
@@ -370,42 +328,36 @@ async def delete_contextual_mab_by_id(
 
 
 async def save_contextual_obs_to_db(
-    observation: CMABObservation,
-    experiment_id: int,
-    user_id: int,
+    draw: ContextualDrawDB,
+    reward: float,
     asession: AsyncSession,
-) -> ContextualObservationDB:
+) -> ContextualDrawDB:
     """
     Save the observation to the database.
     """
-    observation_db = ContextualObservationDB(
-        arm_id=observation.arm_id,
-        experiment_id=experiment_id,
-        user_id=user_id,
-        reward=observation.reward,
-        context_val=observation.context_val,
-        observed_datetime_utc=datetime.now(timezone.utc),
-    )
+    draw.reward = reward
+    draw.observed_datetime_utc = datetime.now(timezone.utc)
+    draw.observation_type = ObservationType.USER
 
-    asession.add(observation_db)
     await asession.commit()
-    await asession.refresh(observation_db)
+    await asession.refresh(draw)
 
-    return observation_db
+    return draw
 
 
 async def get_contextual_obs_by_experiment_arm_id(
     experiment_id: int, arm_id: int, user_id: int, asession: AsyncSession
-) -> Sequence[ContextualObservationDB]:
+) -> Sequence[ContextualDrawDB]:
     """
     Get the rewards for an arm of an experiment.
     """
     statement = (
-        select(ContextualObservationDB)
-        .where(ContextualObservationDB.user_id == user_id)
-        .where(ContextualObservationDB.experiment_id == experiment_id)
-        .where(ContextualObservationDB.arm_id == arm_id)
-        .order_by(ContextualObservationDB.observed_datetime_utc)
+        select(ContextualDrawDB)
+        .where(ContextualDrawDB.user_id == user_id)
+        .where(ContextualDrawDB.experiment_id == experiment_id)
+        .where(ContextualDrawDB.reward.is_not(None))
+        .where(ContextualDrawDB.arm_id == arm_id)
+        .order_by(ContextualDrawDB.observed_datetime_utc)
     )
 
     return (await asession.execute(statement)).unique().scalars().all()
@@ -413,15 +365,16 @@ async def get_contextual_obs_by_experiment_arm_id(
 
 async def get_all_contextual_obs_by_experiment_id(
     experiment_id: int, user_id: int, asession: AsyncSession
-) -> Sequence[ContextualObservationDB]:
+) -> Sequence[ContextualDrawDB]:
     """
     Get the rewards for an experiment.
     """
     statement = (
-        select(ContextualObservationDB)
-        .where(ContextualObservationDB.user_id == user_id)
-        .where(ContextualObservationDB.experiment_id == experiment_id)
-        .order_by(ContextualObservationDB.observed_datetime_utc)
+        select(ContextualDrawDB)
+        .where(ContextualDrawDB.user_id == user_id)
+        .where(ContextualDrawDB.reward.is_not(None))
+        .where(ContextualDrawDB.experiment_id == experiment_id)
+        .order_by(ContextualDrawDB.observed_datetime_utc)
     )
 
     return (await asession.execute(statement)).unique().scalars().all()
@@ -446,7 +399,7 @@ async def get_draw_by_id(
 async def save_draw_to_db(
     experiment_id: int,
     arm_id: int,
-    context_val: dict[int, float],
+    context_val: list[float],
     draw_id: str,
     user_id: int,
     asession: AsyncSession,
@@ -455,12 +408,12 @@ async def save_draw_to_db(
     Save the draw to the database.
     """
     draw_db = ContextualDrawDB(
+        draw_id=draw_id,
         arm_id=arm_id,
         experiment_id=experiment_id,
         user_id=user_id,
         context_val=context_val,
         draw_datetime_utc=datetime.now(timezone.utc),
-        draw_id=draw_id,
     )
 
     asession.add(draw_db)

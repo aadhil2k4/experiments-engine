@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated, List, Optional
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import ContextType, NotificationsResponse, Outcome
 from ..users.models import UserDB
+from ..utils import setup_logger
 from .models import (
     delete_contextual_mab_by_id,
     get_all_contextual_mabs,
@@ -24,7 +26,6 @@ from .models import (
 from .sampling_utils import choose_arm, update_arm_params
 from .schemas import (
     CMABDrawResponse,
-    CMABObservation,
     CMABObservationResponse,
     ContextInput,
     ContextualArmResponse,
@@ -34,6 +35,8 @@ from .schemas import (
 )
 
 router = APIRouter(prefix="/contextual_mab", tags=["Contextual Bandits"])
+
+logger = setup_logger(__name__)
 
 
 @router.post("/", response_model=ContextualBanditResponse)
@@ -166,10 +169,11 @@ async def draw_arm(
             detail="Number of contexts provided does not match the num contexts.",
         )
     experiment_data = ContextualBanditSample.model_validate(experiment)
+    sorted_context = list(sorted(context, key=lambda x: x.context_id))
 
     try:
         for c_input, c_exp in zip(
-            sorted(context, key=lambda x: x.context_id),
+            sorted_context,
             sorted(experiment.contexts, key=lambda x: x.context_id),
         ):
             if c_exp.value_type == ContextType.BINARY.value:
@@ -190,16 +194,17 @@ async def draw_arm(
             status_code=400,
             detail=f"Draw ID {draw_id} already exists.",
         )
+
     chosen_arm = choose_arm(
         experiment_data,
-        [c.context_value for c in sorted(context, key=lambda x: x.context_id)],
+        [c.context_value for c in sorted_context],
     )
 
     try:
-        _ = save_draw_to_db(
+        _ = await save_draw_to_db(
             experiment_id=experiment.experiment_id,
             arm_id=experiment.arms[chosen_arm].arm_id,
-            context_val={c.context_id: c.context_value for c in context},
+            context_val=[c.context_value for c in sorted_context],
             draw_id=draw_id,
             user_id=user_db.user_id,
             asession=asession,
@@ -218,12 +223,11 @@ async def draw_arm(
     )
 
 
-@router.put("/{experiment_id}/{arm_id}/{outcome}", response_model=ContextualArmResponse)
+@router.put("/{experiment_id}/{draw_id}/{reward}", response_model=ContextualArmResponse)
 async def update_arm(
     experiment_id: int,
-    arm_id: int,
+    draw_id: str,
     reward: float,
-    context: List[ContextInput],
     user_db: UserDB = Depends(authenticate_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContextualArmResponse:
@@ -240,88 +244,83 @@ async def update_arm(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"
         )
 
-    if len(experiment.contexts) != len(context):
-        raise HTTPException(
-            status_code=400,
-            detail="Number of contexts provided does not match the num contexts.",
-        )
-
-    for c_input, c_exp in zip(
-        sorted(context, key=lambda x: x.context_id),
-        sorted(experiment.contexts, key=lambda x: x.context_id),
-    ):
-        if c_exp.value_type == ContextType.BINARY.value:
-            Outcome(c_input.context_value)
-
+    experiment.n_trials += 1
+    experiment.last_trial_datetime_utc = datetime.now(tz=timezone.utc)
     experiment_data = ContextualBanditSample.model_validate(experiment)
 
-    # Get the arm
-    arms = [a for a in experiment.arms if a.arm_id == arm_id]
+    draw = await get_draw_by_id(
+        draw_id=draw_id, user_id=user_db.user_id, asession=asession
+    )
+    if draw is None:
+        raise HTTPException(status_code=404, detail=f"Draw with id {draw_id} not found")
+    if draw.experiment_id != experiment_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Draw with id {draw_id} does not belong "
+                f"to experiment with id {experiment_id}",
+            ),
+        )
+    if draw.reward is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Draw with id {draw_id} already has a reward.",
+        )
 
+    arm_id = draw.arm_id
+    logger.error("draw_context: %s", draw.context_val)
+
+    # Get and validate arm
+    arms = [a for a in experiment.arms if a.arm_id == arm_id]
     if not arms:
         raise HTTPException(status_code=404, detail=f"Arm with id {arm_id} not found")
-    else:
-        arm = arms[0]
 
-        # Get all observations for the arm
-        all_obs = await get_contextual_obs_by_experiment_arm_id(
-            experiment_id=experiment_id,
-            arm_id=arm_id,
-            user_id=user_db.user_id,
-            asession=asession,
-        )
-        rewards = [obs.reward for obs in all_obs] + [reward]
-        contexts = [obs.context_val for obs in all_obs] + [
-            sorted(
-                float(context.context_value)
-                for context in sorted(context, key=lambda x: x.context_id)
-            )
-        ]
+    arm = arms[0]
+    arm.n_outcomes += 1
 
-        # Update the arm
-        mu, covariance = update_arm_params(
-            arm=ContextualArmResponse.model_validate(arm),
-            prior_type=experiment_data.prior_type,
-            reward_type=experiment_data.reward_type,
-            context=contexts,
-            reward=rewards,
-        )
+    # Get all observations for the arm
+    all_obs = await get_contextual_obs_by_experiment_arm_id(
+        experiment_id=experiment_id,
+        arm_id=arm_id,
+        user_id=user_db.user_id,
+        asession=asession,
+    )
+    rewards = [obs.reward for obs in all_obs] + [reward]
 
-        # Update the arm in the database
-        arm.mu = mu.tolist()
-        arm.covariance = covariance.tolist()
-        asession.add(arm)
-        await asession.commit()
+    contexts = [obs.context_val for obs in all_obs]
+    contexts.append(draw.context_val)
 
-        # Save the observation
-        observation = CMABObservation.model_validate(
-            dict(
-                arm_id=arm_id,
-                reward=reward,
-                context_val=[
-                    c.context_value for c in sorted(context, key=lambda x: x.context_id)
-                ],
-            )
-        )
-        await save_contextual_obs_to_db(
-            observation=observation,
-            experiment_id=experiment_id,
-            user_id=user_db.user_id,
-            asession=asession,
-        )
+    logger.error("contexts: %s", contexts)
+    # Update the arm
+    mu, covariance = update_arm_params(
+        arm=ContextualArmResponse.model_validate(arm),
+        prior_type=experiment_data.prior_type,
+        reward_type=experiment_data.reward_type,
+        context=contexts,
+        reward=rewards,
+    )
 
-        return ContextualArmResponse.model_validate(arm)
+    # Update the arm in the database
+    arm.mu = mu.tolist()
+    arm.covariance = covariance.tolist()
+    asession.add(arm)
+    await asession.commit()
+
+    # Save the observation
+    await save_contextual_obs_to_db(draw, reward, asession)
+
+    return ContextualArmResponse.model_validate(arm)
 
 
 @router.get(
     "/{experiment_id}/outcomes",
-    response_model=list[CMABObservation],
+    response_model=list[CMABObservationResponse],
 )
 async def get_outcomes(
     experiment_id: int,
     user_db: UserDB = Depends(authenticate_key),
     asession: AsyncSession = Depends(get_async_session),
-) -> list[CMABObservation]:
+) -> list[CMABObservationResponse]:
     """
     Get the outcomes for the experiment.
     """

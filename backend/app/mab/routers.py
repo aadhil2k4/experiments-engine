@@ -11,6 +11,7 @@ from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, Outcome, RewardLikelihood
 from ..users.models import UserDB
+from ..utils import setup_logger
 from .models import (
     delete_mab_by_id,
     get_all_mabs,
@@ -25,7 +26,6 @@ from .sampling_utils import choose_arm, update_arm_params
 from .schemas import (
     ArmResponse,
     MABDrawResponse,
-    MABObservation,
     MABObservationResponse,
     MultiArmedBandit,
     MultiArmedBanditResponse,
@@ -33,6 +33,8 @@ from .schemas import (
 )
 
 router = APIRouter(prefix="/mab", tags=["Multi-Armed Bandits"])
+
+logger = setup_logger(__name__)
 
 
 @router.post("/", response_model=MultiArmedBanditResponse)
@@ -168,7 +170,7 @@ async def draw_arm(
         )
 
     try:
-        _ = save_draw_to_db(
+        _ = await save_draw_to_db(
             experiment_id=experiment.experiment_id,
             arm_id=experiment.arms[chosen_arm].arm_id,
             draw_id=draw_id,
@@ -189,10 +191,10 @@ async def draw_arm(
     )
 
 
-@router.put("/{experiment_id}/{arm_id}/{outcome}", response_model=ArmResponse)
+@router.put("/{experiment_id}/{draw_id}/{outcome}", response_model=ArmResponse)
 async def update_arm(
     experiment_id: int,
-    arm_id: int,
+    draw_id: str,
     outcome: float,
     user_db: UserDB = Depends(authenticate_key),
     asession: AsyncSession = Depends(get_async_session),
@@ -210,6 +212,28 @@ async def update_arm(
     experiment.n_trials += 1
     experiment.last_trial_datetime_utc = datetime.now(tz=timezone.utc)
     experiment_data = MultiArmedBanditSample.model_validate(experiment)
+
+    # Get draw
+    draw = await get_draw_by_id(
+        draw_id=draw_id, user_id=user_db.user_id, asession=asession
+    )
+    if draw is None:
+        raise HTTPException(status_code=404, detail=f"Draw with id {draw_id} not found")
+    if draw.experiment_id != experiment_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Draw with id {draw_id} does not belong "
+                f"to experiment with id {experiment_id}",
+            ),
+        )
+    if draw.reward is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Draw with id {draw_id} has already has an outcome.",
+        )
+
+    arm_id = draw.arm_id
 
     # Get and validate arm
     arms = [a for a in experiment.arms if a.arm_id == arm_id]
@@ -247,12 +271,7 @@ async def update_arm(
     asession.add(arm)
     await asession.commit()
 
-    observation = MABObservation(
-        experiment_id=experiment.experiment_id,
-        arm_id=arm.arm_id,
-        reward=outcome,
-    )
-    await save_observation_to_db(observation, user_db.user_id, asession)
+    await save_observation_to_db(draw, outcome, asession)
 
     return ArmResponse.model_validate(arm)
 
@@ -274,7 +293,6 @@ async def get_outcomes(
         raise HTTPException(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"
         )
-    experiment.n_trials += 1
 
     rewards = await get_all_rewards_by_experiment_id(
         experiment_id=experiment.experiment_id,

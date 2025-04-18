@@ -217,6 +217,34 @@ class TestMab:
         assert response.status_code == 200
         assert len(response.json()["draw_id"]) == 36
 
+    def test_one_outcome_per_draw(self, client: TestClient, create_cmabs: list) -> None:
+        id = create_cmabs[0]["experiment_id"]
+        api_key = os.environ.get("ADMIN_API_KEY", "")
+        response = client.post(
+            f"/contextual_mab/{id}/draw",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json=[
+                {"context_id": 1, "context_value": 0},
+                {"context_id": 2, "context_value": 0.5},
+            ],
+        )
+        assert response.status_code == 200
+        draw_id = response.json()["draw_id"]
+
+        response = client.put(
+            f"/contextual_mab/{id}/{draw_id}/1",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+
+        assert response.status_code == 200
+
+        response = client.put(
+            f"/contextual_mab/{id}/{draw_id}/1",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+
+        assert response.status_code == 400
+
 
 class TestNotifications:
     @fixture()
