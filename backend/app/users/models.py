@@ -56,8 +56,7 @@ class UserDB(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    
-    # Relationships for workspaces
+
     user_workspaces: Mapped[list["UserWorkspaceDB"]] = relationship(
         "UserWorkspaceDB",
         back_populates="user",

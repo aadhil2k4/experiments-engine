@@ -12,6 +12,9 @@ class UserCreate(BaseModel):
     username: str
     experiments_quota: Optional[int] = None
     api_daily_quota: Optional[int] = None
+    workspace_name: Optional[str] = None
+    role: Optional[str] = None
+    is_default_workspace: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 

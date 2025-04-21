@@ -12,7 +12,7 @@ from fastapi.security import (
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import CHECK_API_LIMIT, DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA, ENV
+from ..config import CHECK_API_LIMIT, DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
 from ..database import get_async_session
 from ..users.models import (
     UserDB,
@@ -185,7 +185,7 @@ async def get_verified_user(
     return user_db
 
 
-def create_access_token(username: str) -> str:
+def create_access_token(username: str, workspace_name: str = None) -> str:
     """
     Create an access token for the user
     """
@@ -198,6 +198,9 @@ def create_access_token(username: str) -> str:
     payload["iat"] = datetime.now(timezone.utc)
     payload["sub"] = username
     payload["type"] = "access_token"
+    
+    if workspace_name:
+        payload["workspace_name"] = workspace_name
 
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 

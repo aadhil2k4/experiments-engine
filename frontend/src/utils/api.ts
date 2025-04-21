@@ -90,42 +90,97 @@ const registerUser = async (username: string, password: string) => {
   }
 };
 
-const requestPasswordReset = async (username: string) => {
+const getCurrentWorkspace = async (token: string | null) => {
   try {
-    const response = await api.post("/request-password-reset", { username });
-    return response.data;
-  } catch (error) {
-    throw new Error("Error requesting password reset");
-  }
-};
-
-const resetPassword = async (token: string, newPassword: string) => {
-  try {
-    const response = await api.post("/reset-password", {
-      token,
-      new_password: newPassword
+    const response = await api.get("/workspace/current", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
     return response.data;
   } catch (error) {
-    throw new Error("Error resetting password");
+    throw new Error("Error fetching current workspace");
   }
 };
 
-const verifyEmail = async (token: string) => {
+const getAllWorkspaces = async (token: string | null) => {
   try {
-    const response = await api.post("/verify-email", { token });
+    const response = await api.get("/workspace/", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
-    throw new Error("Error verifying email");
+    throw new Error("Error fetching workspaces");
   }
 };
 
-const resendVerification = async (username: string) => {
+const createWorkspace = async (token: string | null, workspaceData: any) => {
   try {
-    const response = await api.post("/resend-verification", { username });
+    const response = await api.post("/workspace/", workspaceData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
-    throw new Error("Error resending verification email");
+    throw new Error("Error creating workspace");
+  }
+};
+
+const updateWorkspace = async (token: string | null, workspaceId: number, workspaceData: any) => {
+  try {
+    const response = await api.put(`/workspace/${workspaceId}`, workspaceData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error updating workspace");
+  }
+};
+
+const switchWorkspace = async (token: string | null, workspaceName: string) => {
+  try {
+    const response = await api.post("/workspace/switch", 
+      { workspace_name: workspaceName },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error("Error switching workspace");
+  }
+};
+
+const rotateWorkspaceApiKey = async (token: string | null) => {
+  try {
+    const response = await api.put("/workspace/rotate-key", {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error rotating workspace API key");
+  }
+};
+
+const inviteUserToWorkspace = async (token: string | null, inviteData: any) => {
+  try {
+    const response = await api.post("/workspace/invite", inviteData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error inviting user to workspace");
   }
 };
 
@@ -177,5 +232,12 @@ export const apiCalls = {
   resetPassword,
   verifyEmail,
   resendVerification,
+  getCurrentWorkspace,
+  getAllWorkspaces,
+  createWorkspace,
+  updateWorkspace,
+  switchWorkspace,
+  rotateWorkspaceApiKey,
+  inviteUserToWorkspace,
 };
 export default api;

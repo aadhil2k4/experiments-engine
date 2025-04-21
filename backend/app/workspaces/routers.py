@@ -1,0 +1,479 @@
+from typing import Annotated, List
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.exceptions import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import Redis
+
+from ..auth.dependencies import (
+    create_access_token,
+    get_current_user,
+)
+from ..auth.schemas import AuthenticationDetails
+from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
+from ..database import get_async_session, get_redis
+from ..email import EmailService
+from ..users.models import (
+    UserDB,
+    UserNotFoundError,
+    save_user_to_db,
+    get_user_by_username,
+)
+from ..users.schemas import UserCreate
+from ..utils import generate_key, setup_logger
+from .models import (
+    add_existing_user_to_workspace,
+    check_if_user_has_default_workspace,
+    get_user_default_workspace,
+    get_user_role_in_workspace,
+    get_user_workspaces,
+    get_workspaces_by_user_role,
+    update_user_default_workspace,
+    user_has_admin_role_in_any_workspace,
+)
+from .schemas import (
+    UserRoles,
+    WorkspaceCreate,
+    WorkspaceInvite,
+    WorkspaceInviteResponse,
+    WorkspaceKeyResponse,
+    WorkspaceRetrieve,
+    WorkspaceSwitch,
+    WorkspaceUpdate,
+)
+from .utils import (
+    WorkspaceNotFoundError,
+    create_workspace,
+    get_workspace_by_workspace_id,
+    get_workspace_by_workspace_name,
+    is_workspace_name_valid,
+    update_workspace_api_key,
+    update_workspace_name_and_quotas,
+)
+
+TAG_METADATA = {
+    "name": "Workspace",
+    "description": "_Requires user login._ Only administrator user has access to these "
+    "endpoints and only for the workspaces that they are assigned to.",
+}
+
+router = APIRouter(prefix="/workspace", tags=["Workspace"])
+logger = setup_logger()
+email_service = EmailService()
+
+
+@router.post("/", response_model=WorkspaceRetrieve)
+async def create_workspace_endpoint(
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    workspace: WorkspaceCreate,
+    asession: AsyncSession = Depends(get_async_session),
+) -> WorkspaceRetrieve:
+    """Create a new workspace. Workspaces can only be created by authenticated users."""
+    if not await check_if_user_has_default_workspace(
+        asession=asession, user_db=calling_user_db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must be assigned to a workspace first before creating new workspaces.",
+        )
+
+    # Check if workspace name is valid
+    if not await is_workspace_name_valid(
+        asession=asession, workspace_name=workspace.workspace_name
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Workspace with name '{workspace.workspace_name}' already exists.",
+        )
+
+    # Create new workspace
+    api_key = generate_key()
+    workspace_db, is_new_workspace = await create_workspace(
+        api_daily_quota=workspace.api_daily_quota or DEFAULT_API_QUOTA,
+        asession=asession,
+        content_quota=workspace.content_quota or DEFAULT_EXPERIMENTS_QUOTA,
+        user=UserCreate(
+            role=UserRoles.ADMIN,
+            username=calling_user_db.username,
+            workspace_name=workspace.workspace_name,
+        ),
+        api_key=api_key,
+    )
+
+    if is_new_workspace:
+        # Add the calling user as an admin to the new workspace
+        await add_existing_user_to_workspace(
+            asession=asession,
+            user=UserCreate(
+                is_default_workspace=False,  # Don't make it default automatically
+                role=UserRoles.ADMIN,
+                username=calling_user_db.username,
+                workspace_name=workspace_db.workspace_name,
+            ),
+            workspace_db=workspace_db,
+        )
+        
+        return WorkspaceRetrieve(
+            api_daily_quota=workspace_db.api_daily_quota,
+            api_key_first_characters=workspace_db.api_key_first_characters,
+            api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+            content_quota=workspace_db.content_quota,
+            created_datetime_utc=workspace_db.created_datetime_utc,
+            updated_datetime_utc=workspace_db.updated_datetime_utc,
+            workspace_id=workspace_db.workspace_id,
+            workspace_name=workspace_db.workspace_name,
+            is_default=workspace_db.is_default,
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workspace already exists.",
+        )
+
+
+@router.get("/", response_model=List[WorkspaceRetrieve])
+async def retrieve_all_workspaces(
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> List[WorkspaceRetrieve]:
+    """Return a list of all workspaces the user has access to."""
+    user_workspaces = await get_user_workspaces(asession=asession, user_db=calling_user_db)
+    
+    return [
+        WorkspaceRetrieve(
+            api_daily_quota=workspace_db.api_daily_quota,
+            api_key_first_characters=workspace_db.api_key_first_characters,
+            api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+            content_quota=workspace_db.content_quota,
+            created_datetime_utc=workspace_db.created_datetime_utc,
+            updated_datetime_utc=workspace_db.updated_datetime_utc,
+            workspace_id=workspace_db.workspace_id,
+            workspace_name=workspace_db.workspace_name,
+            is_default=workspace_db.is_default,
+        )
+        for workspace_db in user_workspaces
+    ]
+
+
+@router.get("/current", response_model=WorkspaceRetrieve)
+async def get_current_workspace(
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> WorkspaceRetrieve:
+    """Return the current default workspace for the user."""
+    try:
+        workspace_db = await get_user_default_workspace(
+            asession=asession, user_db=calling_user_db
+        )
+        
+        return WorkspaceRetrieve(
+            api_daily_quota=workspace_db.api_daily_quota,
+            api_key_first_characters=workspace_db.api_key_first_characters,
+            api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+            content_quota=workspace_db.content_quota,
+            created_datetime_utc=workspace_db.created_datetime_utc,
+            updated_datetime_utc=workspace_db.updated_datetime_utc,
+            workspace_id=workspace_db.workspace_id,
+            workspace_name=workspace_db.workspace_name,
+            is_default=workspace_db.is_default,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No default workspace found for the user.",
+        ) from e
+
+
+@router.post("/switch", response_model=AuthenticationDetails)
+async def switch_workspace(
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    workspace_switch: WorkspaceSwitch,
+    asession: AsyncSession = Depends(get_async_session),
+) -> AuthenticationDetails:
+    """Switch to a different workspace."""
+    # Find the workspace
+    try:
+        workspace_db = await get_workspace_by_workspace_name(
+            asession=asession, workspace_name=workspace_switch.workspace_name
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace '{workspace_switch.workspace_name}' not found.",
+        ) from e
+
+    # Check if user belongs to this workspace
+    user_role = await get_user_role_in_workspace(
+        asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+    )
+    
+    if user_role is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User does not have access to workspace '{workspace_switch.workspace_name}'.",
+        )
+
+    # Set this workspace as the default for the user
+    await update_user_default_workspace(
+        asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+    )
+
+    # Create a new token with the updated workspace information
+    return AuthenticationDetails(
+        access_level="fullaccess",
+        access_token=create_access_token(calling_user_db.username),
+        token_type="bearer",
+        username=calling_user_db.username,
+        is_verified=calling_user_db.is_verified,
+        api_key_first_characters=calling_user_db.api_key_first_characters,
+    )
+
+
+@router.put("/rotate-key", response_model=WorkspaceKeyResponse)
+async def rotate_workspace_api_key(
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> WorkspaceKeyResponse:
+    """Generate a new API key for the current workspace."""
+    try:
+        # Get the user's default workspace
+        workspace_db = await get_user_default_workspace(
+            asession=asession, user_db=calling_user_db
+        )
+        
+        # Verify user is an admin in this workspace
+        user_role = await get_user_role_in_workspace(
+            asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+        )
+        
+        if user_role != UserRoles.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only workspace administrators can rotate API keys.",
+            )
+            
+        # Generate and update the API key
+        new_api_key = generate_key()
+        asession.add(workspace_db)
+        workspace_db = await update_workspace_api_key(
+            asession=asession, new_api_key=new_api_key, workspace_db=workspace_db
+        )
+        
+        return WorkspaceKeyResponse(
+            new_api_key=new_api_key,
+            workspace_name=workspace_db.workspace_name,
+        )
+    except Exception as e:
+        logger.error(f"Error rotating workspace API key: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error rotating workspace API key.",
+        ) from e
+
+
+@router.get("/{workspace_id}", response_model=WorkspaceRetrieve)
+async def retrieve_workspace_by_workspace_id(
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    workspace_id: int,
+    asession: AsyncSession = Depends(get_async_session),
+) -> WorkspaceRetrieve:
+    """Retrieve a workspace by ID."""
+    try:
+        # Get the workspace
+        workspace_db = await get_workspace_by_workspace_id(
+            asession=asession, workspace_id=workspace_id
+        )
+        
+        # Check if user has access to this workspace
+        user_role = await get_user_role_in_workspace(
+            asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+        )
+        
+        if user_role is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User does not have access to workspace with ID {workspace_id}.",
+            )
+        
+        return WorkspaceRetrieve(
+            api_daily_quota=workspace_db.api_daily_quota,
+            api_key_first_characters=workspace_db.api_key_first_characters,
+            api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+            content_quota=workspace_db.content_quota,
+            created_datetime_utc=workspace_db.created_datetime_utc,
+            updated_datetime_utc=workspace_db.updated_datetime_utc,
+            workspace_id=workspace_db.workspace_id,
+            workspace_name=workspace_db.workspace_name,
+            is_default=workspace_db.is_default,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace with ID {workspace_id} not found.",
+        ) from e
+
+
+@router.put("/{workspace_id}", response_model=WorkspaceRetrieve)
+async def update_workspace_endpoint(
+    workspace_id: int,
+    workspace_update: WorkspaceUpdate,
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> WorkspaceRetrieve:
+    """Update workspace details (name, quotas)."""
+    try:
+        # Get the workspace
+        workspace_db = await get_workspace_by_workspace_id(
+            asession=asession, workspace_id=workspace_id
+        )
+        
+        # Verify user is an admin in this workspace
+        user_role = await get_user_role_in_workspace(
+            asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+        )
+        
+        if user_role != UserRoles.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only workspace administrators can update workspace details.",
+            )
+            
+        # Check if the new workspace name is valid
+        if workspace_update.workspace_name and workspace_update.workspace_name != workspace_db.workspace_name:
+            if not await is_workspace_name_valid(
+                asession=asession, workspace_name=workspace_update.workspace_name
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Workspace with name '{workspace_update.workspace_name}' already exists.",
+                )
+        
+        # Update the workspace
+        asession.add(workspace_db)
+        updated_workspace = await update_workspace_name_and_quotas(
+            asession=asession, workspace=workspace_update, workspace_db=workspace_db
+        )
+        
+        return WorkspaceRetrieve(
+            api_daily_quota=updated_workspace.api_daily_quota,
+            api_key_first_characters=updated_workspace.api_key_first_characters,
+            api_key_updated_datetime_utc=updated_workspace.api_key_updated_datetime_utc,
+            content_quota=updated_workspace.content_quota,
+            created_datetime_utc=updated_workspace.created_datetime_utc,
+            updated_datetime_utc=updated_workspace.updated_datetime_utc,
+            workspace_id=updated_workspace.workspace_id,
+            workspace_name=updated_workspace.workspace_name,
+            is_default=updated_workspace.is_default,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace with ID {workspace_id} not found.",
+        ) from e
+    except SQLAlchemyError as e:
+        logger.error(f"Database error when updating workspace: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error when updating workspace.",
+        ) from e
+
+
+@router.post("/invite", response_model=WorkspaceInviteResponse)
+async def invite_user_to_workspace(
+    calling_user_db: Annotated[UserDB, Depends(get_current_user)],
+    invite: WorkspaceInvite,
+    background_tasks: BackgroundTasks,
+    asession: AsyncSession = Depends(get_async_session),
+    redis: Redis = Depends(get_redis),
+) -> WorkspaceInviteResponse:
+    """Invite a user to join a workspace."""
+    try:
+        # Get the workspace
+        workspace_db = await get_workspace_by_workspace_name(
+            asession=asession, workspace_name=invite.workspace_name
+        )
+        
+        # Check if it's a default workspace (users can't invite others to default workspaces)
+        if workspace_db.is_default:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Users cannot be invited to default workspaces.",
+            )
+        
+        # Verify caller is an admin in this workspace
+        user_role = await get_user_role_in_workspace(
+            asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+        )
+        
+        if user_role != UserRoles.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only workspace administrators can invite users.",
+            )
+        
+        # Check if the invited user exists
+        user_exists = False
+        try:
+            invited_user = await get_user_by_username(
+                username=invite.email, asession=asession
+            )
+            user_exists = True
+            
+            # Add existing user to workspace
+            await add_existing_user_to_workspace(
+                asession=asession,
+                user=UserCreate(
+                    role=invite.role,
+                    username=invite.email,
+                    workspace_name=invite.workspace_name,
+                ),
+                workspace_db=workspace_db,
+            )
+            
+            # Send invitation email to existing user
+            background_tasks.add_task(
+                email_service.send_workspace_invitation_email,
+                invite.email,
+                invite.email,
+                calling_user_db.username,
+                workspace_db.workspace_name,
+                True,  # user exists
+            )
+            
+            return WorkspaceInviteResponse(
+                message=f"User {invite.email} has been added to workspace '{workspace_db.workspace_name}'.",
+                email=invite.email,
+                workspace_name=workspace_db.workspace_name,
+                user_exists=True,
+            )
+            
+        except UserNotFoundError:
+            # User doesn't exist, send invitation to create account
+            background_tasks.add_task(
+                email_service.send_workspace_invitation_email,
+                invite.email,
+                invite.email,
+                calling_user_db.username,
+                workspace_db.workspace_name,
+                False,  # user doesn't exist
+            )
+            
+            return WorkspaceInviteResponse(
+                message=f"Invitation sent to {invite.email} to join workspace '{workspace_db.workspace_name}'.",
+                email=invite.email,
+                workspace_name=workspace_db.workspace_name,
+                user_exists=False,
+            )
+            
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace '{invite.workspace_name}' not found.",
+        ) from e
+    except Exception as e:
+        logger.error(f"Error inviting user to workspace: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error inviting user to workspace.",
+        ) from e

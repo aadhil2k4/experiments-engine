@@ -10,6 +10,7 @@ import {
   SidebarLabel,
   SidebarSection,
   SidebarSpacer,
+  SidebarDivider,
 } from "@/components/catalyst/sidebar";
 import { Avatar } from "@/components/catalyst/avatar";
 import { Dropdown, DropdownButton } from "@/components/catalyst/dropdown";
@@ -22,11 +23,14 @@ import {
   MagnifyingGlassIcon,
   QuestionMarkCircleIcon,
   SparklesIcon,
+  BuildingOfficeIcon,
+  UserPlusIcon,
 } from "@heroicons/react/20/solid";
 import { useAuth } from "@/utils/auth";
+import WorkspaceSelector from "./WorkspaceSelector";
 
 export const SidebarComponent = (): React.ReactNode => {
-  const { user } = useAuth();
+  const { user, currentWorkspace } = useAuth();
 
   return (
     <Sidebar>
@@ -43,6 +47,19 @@ export const SidebarComponent = (): React.ReactNode => {
         </SidebarSection>
       </SidebarHeader>
       <SidebarBody>
+          <SidebarSection>
+            <SidebarHeading>Workspace</SidebarHeading>
+            <WorkspaceSelector />
+            <SidebarItem href="/workspace">
+              <BuildingOfficeIcon />
+              <SidebarLabel>Manage Workspace</SidebarLabel>
+            </SidebarItem>
+            <SidebarItem href="/workspace/invite">
+              <UserPlusIcon />
+              <SidebarLabel>Invite Members</SidebarLabel>
+            </SidebarItem>
+          </SidebarSection>
+        <SidebarDivider />
         <SidebarSection>
           {navItems.map((item) => (
             <SidebarItem key={item.label} href={item.url}>
@@ -51,7 +68,7 @@ export const SidebarComponent = (): React.ReactNode => {
             </SidebarItem>
           ))}
         </SidebarSection>
-        <SidebarSection className="max-lg:hidden">
+        {/* <SidebarSection className="max-lg:hidden">
           <SidebarHeading>New experiments</SidebarHeading>
           <SidebarItem href="/experiments/1">
             Modifying voice of chatbot
@@ -65,7 +82,7 @@ export const SidebarComponent = (): React.ReactNode => {
           <SidebarItem href="/experiments/4">
             When to send the message
           </SidebarItem>
-        </SidebarSection>
+        </SidebarSection> */}
         <SidebarSpacer />
         <SidebarSection>
           <SidebarItem href="/support">

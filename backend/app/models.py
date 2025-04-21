@@ -3,7 +3,7 @@ from typing import Sequence
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from .schemas import EventType, Notifications
 
@@ -29,6 +29,9 @@ class ExperimentBaseDB(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.user_id"), nullable=False
     )
+    workspace_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("workspace.workspace_id"), nullable=False
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     exp_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
     prior_type: Mapped[str] = mapped_column(String(length=50), nullable=False)
@@ -41,6 +44,8 @@ class ExperimentBaseDB(Base):
     last_trial_datetime_utc: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    workspace: Mapped["WorkspaceDB"] = relationship("WorkspaceDB", back_populates="experiments")
+    
     __mapper_args__ = {
         "polymorphic_identity": "experiment",
         "polymorphic_on": "exp_type",

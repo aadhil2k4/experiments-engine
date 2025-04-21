@@ -10,6 +10,7 @@ from .config import REDIS_HOST
 from .users.routers import (
     router as users_router,
 )  # to avoid circular imports
+from .workspaces.routers import router as workspaces_router
 from .utils import setup_logger
 
 logger = setup_logger()
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(users_router)
     app.include_router(messages.router)
+    app.include_router(workspaces_router)
 
     origins = [
         "http://localhost",
