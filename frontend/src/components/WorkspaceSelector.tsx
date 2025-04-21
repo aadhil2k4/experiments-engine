@@ -89,9 +89,9 @@ export default function WorkspaceSelector() {
               <DropdownLabel>{workspace.workspace_name}</DropdownLabel>
             </DropdownItem>
           ))}
-          
+
           <DropdownDivider />
-          
+
           <DropdownItem onClick={handleCreateWorkspace}>
             <PlusIcon />
             <DropdownLabel>Create New Workspace</DropdownLabel>

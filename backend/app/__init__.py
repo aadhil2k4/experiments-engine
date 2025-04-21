@@ -10,8 +10,8 @@ from .config import REDIS_HOST
 from .users.routers import (
     router as users_router,
 )  # to avoid circular imports
-from .workspaces.routers import router as workspaces_router
 from .utils import setup_logger
+from .workspaces.routers import router as workspaces_router
 
 logger = setup_logger()
 

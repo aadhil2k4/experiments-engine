@@ -6,10 +6,9 @@ from redis.asyncio import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
-
 from ..auth.dependencies import get_current_user, get_verified_user
 from ..auth.utils import generate_verification_token
+from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
 from ..database import get_async_session, get_redis
 from ..email import EmailService
 from ..users.models import (

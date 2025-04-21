@@ -44,8 +44,10 @@ class ExperimentBaseDB(Base):
     last_trial_datetime_utc: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    workspace: Mapped["WorkspaceDB"] = relationship("WorkspaceDB", back_populates="experiments")
-    
+    workspace: Mapped["WorkspaceDB"] = relationship(
+        "WorkspaceDB", back_populates="experiments"
+    )
+
     __mapper_args__ = {
         "polymorphic_identity": "experiment",
         "polymorphic_on": "exp_type",

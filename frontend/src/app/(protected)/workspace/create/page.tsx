@@ -54,14 +54,14 @@ export default function CreateWorkspacePage() {
     setIsSubmitting(true);
     try {
       const response = await apiCalls.createWorkspace(token, data);
-      
+
       await switchWorkspace(response.workspace_name);
-      
+
       toast({
         title: "Success",
         description: `Workspace "${response.workspace_name}" created and activated!`,
       });
-      
+
       router.push("/workspace");
     } catch (error: any) {
       toast({
@@ -73,7 +73,7 @@ export default function CreateWorkspacePage() {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <div className="container mx-auto py-10">
       <Card>
@@ -106,7 +106,7 @@ export default function CreateWorkspacePage() {
                   <Description>Choose a descriptive name for your new workspace.</Description>
                 </Field>
               </FieldGroup>
-              
+
               <div className="flex justify-end gap-4 mt-6">
                 <Button
                   outline

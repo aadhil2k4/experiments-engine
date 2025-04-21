@@ -198,10 +198,7 @@ async def get_all_mabs(
 
 
 async def get_mab_by_id(
-    experiment_id: int, 
-    user_id: int, 
-    workspace_id: int,
-    asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> MultiArmedBanditDB | None:
     """
     Get the experiment by id.
@@ -217,10 +214,7 @@ async def get_mab_by_id(
 
 
 async def delete_mab_by_id(
-    experiment_id: int, 
-    user_id: int, 
-    workspace_id: int,
-    asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> None:
     """
     Delete the experiment by id.

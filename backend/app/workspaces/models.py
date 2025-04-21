@@ -1,14 +1,12 @@
 from datetime import datetime, timezone
-from typing import Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
-import sqlalchemy.sql.functions as func
 from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
-    Row,
     String,
     case,
     exists,
@@ -16,15 +14,12 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..users.schemas import UserCreate
-
 from ..models import Base, ExperimentBaseDB
-from ..utils import get_key_hash
-from .schemas import UserRoles, UserCreateWithCode
+from ..users.schemas import UserCreate
+from .schemas import UserCreateWithCode, UserRoles
 
 # Use TYPE_CHECKING for type hints without runtime imports
 if TYPE_CHECKING:
@@ -193,7 +188,7 @@ async def update_user_default_workspace(
                 (UserWorkspaceDB.workspace_id == workspace_db.workspace_id, True),
                 else_=False,
             ),
-            updated_datetime_utc=datetime.now(timezone.utc)
+            updated_datetime_utc=datetime.now(timezone.utc),
         )
     )
 
@@ -275,7 +270,7 @@ async def add_existing_user_to_workspace(
     """Add an existing user to a workspace."""
     # Import here to avoid circular imports
     from ..users.models import get_user_by_username
-    
+
     assert user.role is not None
     user.is_default_workspace = user.is_default_workspace or False
 

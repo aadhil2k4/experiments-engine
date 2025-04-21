@@ -7,7 +7,6 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
-
 from ..database import get_async_session, get_redis
 from ..email import EmailService
 from ..users.models import (
@@ -101,12 +100,12 @@ async def login_google(
 
     # Import here to avoid circular imports
     from ..workspaces.models import (
-        create_user_workspace_role, 
+        UserRoles,
+        create_user_workspace_role,
         get_user_default_workspace,
-        UserRoles
     )
     from ..workspaces.utils import create_workspace
-    
+
     user_email = idinfo["email"]
     user = await authenticate_or_create_google_user(
         request=request, google_email=user_email, asession=asession
@@ -118,15 +117,17 @@ async def login_google(
         )
 
     user_db = await get_user_by_username(username=user_email, asession=asession)
-    
+
     # Create default workspace if user is new (has no workspaces)
     try:
-        default_workspace = await get_user_default_workspace(asession=asession, user_db=user_db)
+        default_workspace = await get_user_default_workspace(
+            asession=asession, user_db=user_db
+        )
         default_workspace_name = default_workspace.workspace_name
     except Exception:
         # User doesn't have a default workspace, create one
         default_workspace_name = f"{user_email}'s Workspace"
-        
+
         # Create default workspace
         workspace_db, _ = await create_workspace(
             api_daily_quota=DEFAULT_API_QUOTA,
@@ -137,9 +138,9 @@ async def login_google(
                 username=user_email,
                 workspace_name=default_workspace_name,
             ),
-            is_default=True
+            is_default=True,
         )
-        
+
         await create_user_workspace_role(
             asession=asession,
             is_default_workspace=True,

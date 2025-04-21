@@ -125,7 +125,12 @@ class EmailService:
         return await self._send_email(email, subject, html_body, text_body)
 
     async def send_workspace_invitation_email(
-        self, email: str, username: str, inviter_email: str, workspace_name: str, user_exists: bool
+        self,
+        email: str,
+        username: str,
+        inviter_email: str,
+        workspace_name: str,
+        user_exists: bool,
     ) -> Dict[str, Any]:
         """
         Send workspace invitation email
@@ -150,7 +155,7 @@ class EmailService:
             Hello {username},
 
             You have been invited by {inviter_email} to join the workspace "{workspace_name}".
-            
+
             You have been added to this workspace. Log in to access it.
 
             {FRONTEND_URL}/login
@@ -175,12 +180,12 @@ class EmailService:
             Hello,
 
             You have been invited by {inviter_email} to join the workspace "{workspace_name}".
-            
+
             You need to create an account to join this workspace.
 
             {FRONTEND_URL}/signup
             """
-            
+
         return await self._send_email(email, subject, html_body, text_body)
 
     async def _send_email(

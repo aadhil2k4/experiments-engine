@@ -70,7 +70,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
           // Fetch current workspace
           const currentWorkspaceData = await apiCalls.getCurrentWorkspace(token);
           setCurrentWorkspace(currentWorkspaceData);
-          
+
           // Fetch all workspaces
           const workspacesData = await apiCalls.getAllWorkspaces(token);
           setWorkspaces(workspacesData);
@@ -139,7 +139,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         const currentWorkspaceData = await apiCalls.getCurrentWorkspace(access_token);
         setCurrentWorkspace(currentWorkspaceData);
-        
+
         const workspacesData = await apiCalls.getAllWorkspaces(access_token);
         setWorkspaces(workspacesData);
       } catch (error) {
@@ -172,13 +172,13 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       setIsLoading(true);
       const response = await apiCalls.switchWorkspace(token, workspaceName);
-      
+
       localStorage.setItem("ee-token", response.access_token);
       setToken(response.access_token);
-      
+
       const currentWorkspaceData = await apiCalls.getCurrentWorkspace(response.access_token);
       setCurrentWorkspace(currentWorkspaceData);
-      
+
       return response;
     } catch (error) {
       console.error("Error switching workspace:", error);
@@ -219,7 +219,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         const currentWorkspaceData = await apiCalls.getCurrentWorkspace(access_token);
         setCurrentWorkspace(currentWorkspaceData);
-        
+
         const workspacesData = await apiCalls.getAllWorkspaces(access_token);
         setWorkspaces(workspacesData);
       } catch (error) {

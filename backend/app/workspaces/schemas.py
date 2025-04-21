@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -27,6 +27,7 @@ class UserRoles(str, Enum):
 
 class WorkspaceCreate(BaseModel):
     """Pydantic model for workspace creation."""
+
     api_daily_quota: int | None = None
     content_quota: int | None = None
     workspace_name: str
@@ -36,6 +37,7 @@ class WorkspaceCreate(BaseModel):
 
 class WorkspaceKeyResponse(BaseModel):
     """Pydantic model for updating workspace API key."""
+
     new_api_key: str
     workspace_name: str
 
@@ -44,6 +46,7 @@ class WorkspaceKeyResponse(BaseModel):
 
 class WorkspaceRetrieve(BaseModel):
     """Pydantic model for workspace retrieval."""
+
     api_daily_quota: Optional[int] = None
     api_key_first_characters: Optional[str] = None
     api_key_updated_datetime_utc: Optional[datetime] = None
@@ -59,6 +62,7 @@ class WorkspaceRetrieve(BaseModel):
 
 class WorkspaceSwitch(BaseModel):
     """Pydantic model for switching workspaces."""
+
     workspace_name: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -66,6 +70,7 @@ class WorkspaceSwitch(BaseModel):
 
 class WorkspaceUpdate(BaseModel):
     """Pydantic model for workspace updates."""
+
     workspace_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -73,6 +78,7 @@ class WorkspaceUpdate(BaseModel):
 
 class UserWorkspace(BaseModel):
     """Pydantic model for user workspace information."""
+
     user_role: UserRoles
     workspace_id: int
     workspace_name: str
@@ -83,6 +89,7 @@ class UserWorkspace(BaseModel):
 
 class UserCreateWithCode(BaseModel):
     """Pydantic model for user creation with recovery codes."""
+
     is_default_workspace: bool = False
     recovery_codes: List[str] = []
     role: UserRoles
@@ -94,6 +101,7 @@ class UserCreateWithCode(BaseModel):
 
 class WorkspaceInvite(BaseModel):
     """Pydantic model for inviting users to a workspace."""
+
     email: EmailStr
     role: UserRoles = UserRoles.READ_ONLY
     workspace_name: str
@@ -103,6 +111,7 @@ class WorkspaceInvite(BaseModel):
 
 class WorkspaceInviteResponse(BaseModel):
     """Pydantic model for workspace invite response."""
+
     message: str
     email: EmailStr
     workspace_name: str

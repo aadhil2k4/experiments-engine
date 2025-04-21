@@ -42,7 +42,7 @@ async def create_workspace(
     )
     workspace_db = result.scalar_one_or_none()
     new_workspace = False
-    
+
     if workspace_db is None:
         new_workspace = True
         workspace_db = WorkspaceDB(
@@ -51,9 +51,9 @@ async def create_workspace(
             created_datetime_utc=datetime.now(timezone.utc),
             updated_datetime_utc=datetime.now(timezone.utc),
             workspace_name=user.workspace_name,
-            is_default=is_default
+            is_default=is_default,
         )
-        
+
         if api_key:
             workspace_db.hashed_api_key = get_key_hash(api_key)
             workspace_db.api_key_first_characters = api_key[:5]

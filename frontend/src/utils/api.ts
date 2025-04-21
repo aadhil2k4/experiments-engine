@@ -144,7 +144,7 @@ const updateWorkspace = async (token: string | null, workspaceId: number, worksp
 
 const switchWorkspace = async (token: string | null, workspaceName: string) => {
   try {
-    const response = await api.post("/workspace/switch", 
+    const response = await api.post("/workspace/switch",
       { workspace_name: workspaceName },
       {
         headers: {

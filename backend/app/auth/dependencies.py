@@ -198,7 +198,7 @@ def create_access_token(username: str, workspace_name: str = None) -> str:
     payload["iat"] = datetime.now(timezone.utc)
     payload["sub"] = username
     payload["type"] = "access_token"
-    
+
     if workspace_name:
         payload["workspace_name"] = workspace_name
 

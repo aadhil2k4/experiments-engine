@@ -265,10 +265,7 @@ async def get_all_contextual_mabs(
 
 
 async def get_contextual_mab_by_id(
-    experiment_id: int, 
-    user_id: int, 
-    workspace_id: int,
-    asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> ContextualBanditDB | None:
     """
     Get the contextual experiment by id.
@@ -284,10 +281,7 @@ async def get_contextual_mab_by_id(
 
 
 async def delete_contextual_mab_by_id(
-    experiment_id: int, 
-    user_id: int, 
-    workspace_id: int,
-    asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> None:
     """
     Delete the contextual experiment by id.
