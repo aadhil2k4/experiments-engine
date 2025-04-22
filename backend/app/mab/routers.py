@@ -274,7 +274,7 @@ async def validate_experiment_and_draw(
     if draw.reward is not None:
         raise HTTPException(
             status_code=400,
-            detail=f"Draw with id {draw_id} has already has an outcome.",
+            detail=f"Draw with id {draw_id} already has an outcome.",
         )
 
     return experiment, draw

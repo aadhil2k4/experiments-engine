@@ -92,6 +92,7 @@ export default function AddBasicInfo({
       newErrors.methodType = "Please select an experiment type";
       isValid = false;
     }
+
     return { isValid, newErrors };
   }, [experimentState]);
 
@@ -237,7 +238,7 @@ export default function AddBasicInfo({
                     tabIndex={experimentState.autoFail ? 0 : -1}
                   />
                 </div>
-                <div className="w-32">
+                <div className="w-32 dark:text-gray-50">
                   <Select
                     value={experimentState.autoFailUnit}
                     onValueChange={updateAutoFailUnit}

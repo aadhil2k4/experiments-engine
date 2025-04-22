@@ -2,10 +2,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from ..schemas import ArmPriors, ContextLinkFunctions, RewardLikelihood
-from ..utils import setup_logger
 from .schemas import ContextualArmResponse, ContextualBanditSample
-
-logger = setup_logger(__name__)
 
 
 def sample_normal(

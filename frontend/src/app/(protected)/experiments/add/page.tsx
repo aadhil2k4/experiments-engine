@@ -45,7 +45,6 @@ export default function NewExperiment() {
   }, [experimentState.methodType]);
 
   const nextStep = useCallback(() => {
-    console.log(experimentState);
     const currentValidation = stepValidations[currentStep];
     if (!currentValidation || !currentValidation.isValid) {
       console.log("Cannot proceed. Please fill in all required fields.");
@@ -67,6 +66,7 @@ export default function NewExperiment() {
   const onSubmit = () => {
     setIsSubmitting(true);
     if (stepValidations.every((validation) => validation.isValid)) {
+      console.log("Data being sent", experimentState);
       createNewExperiment({ experimentData: experimentState, token })
         .then((response) => {
           console.log("Experiment created", response);
