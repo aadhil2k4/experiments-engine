@@ -66,7 +66,6 @@ export default function NewExperiment() {
   const onSubmit = () => {
     setIsSubmitting(true);
     if (stepValidations.every((validation) => validation.isValid)) {
-      console.log("Data being sent", experimentState);
       createNewExperiment({ experimentData: experimentState, token })
         .then((response) => {
           console.log("Experiment created", response);

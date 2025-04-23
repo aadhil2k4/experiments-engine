@@ -169,6 +169,7 @@ export default function AddNotifications({ onValidate }: StepComponentProps) {
             <Checkbox
               name="discoverability"
               value="event"
+              disabled={true}
               defaultChecked={
                 experimentState.notifications.onPercentBetter || false
               }
@@ -180,22 +181,25 @@ export default function AddNotifications({ onValidate }: StepComponentProps) {
               }
             />
             <Label>
-              If an arm is superior by
-              <Input
-                type="number"
-                value={experimentState.notifications.percentBetterThreshold}
-                onChange={(e) =>
-                  updateNotifications({
-                    ...experimentState.notifications,
-                    percentBetterThreshold: Number(e.target.value),
-                  })
-                }
-                className={`${inputClasses} ${
-                  errors.percentBetterThreshold ? "border-red-500" : ""
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              />
-              {"%"}
+              <span className="text-gray-400">
+                [Coming soon] If an arm is superior by
+                <Input
+                  type="number"
+                  value={experimentState.notifications.percentBetterThreshold}
+                  onChange={(e) =>
+                    updateNotifications({
+                      ...experimentState.notifications,
+                      percentBetterThreshold: Number(e.target.value),
+                    })
+                  }
+                  className={`${inputClasses} ${
+                    errors.percentBetterThreshold ? "border-red-500" : ""
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                  disabled={true}
+                />
+                {"%"}
+              </span>
             </Label>
             <Description>
               {errors.percentBetterThreshold ? (
