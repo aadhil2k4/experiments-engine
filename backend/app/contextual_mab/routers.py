@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import authenticate_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
-from ..schemas import ContextType, NotificationsResponse, Outcome
+from ..schemas import ContextType, NotificationsResponse, Outcome, RewardLikelihood
 from ..users.models import UserDB
 from ..utils import setup_logger
 from .models import (
@@ -247,6 +247,14 @@ async def update_arm(
 
     arm = get_arm_from_experiment(experiment, draw.arm_id)
     arm.n_outcomes += 1
+
+    # Ensure reward is binary for Bernoulli reward type
+    if experiment.reward_type == RewardLikelihood.BERNOULLI.value:
+        if reward not in [0, 1]:
+            raise HTTPException(
+                status_code=400,
+                detail="Reward must be 0 or 1 for Bernoulli reward type.",
+            )
 
     # Get data for arm update
     all_obs, contexts, rewards = await prepare_data_for_arm_update(
