@@ -240,7 +240,7 @@ class MABObservationResponse(BaseModel):
     experiment_id: int
     arm_id: int
     reward: float
-    draw_id: int
+    draw_id: str
     observed_datetime_utc: datetime
 
     model_config = ConfigDict(from_attributes=True)

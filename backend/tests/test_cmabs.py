@@ -245,6 +245,38 @@ class TestMab:
 
         assert response.status_code == 400
 
+    @mark.parametrize("n_draws", [0, 1, 5])
+    def test_get_outcomes(
+        self, client: TestClient, create_cmabs: list, n_draws: int
+    ) -> None:
+        id = create_cmabs[0]["experiment_id"]
+        api_key = os.environ.get("ADMIN_API_KEY", "")
+        id = create_cmabs[0]["experiment_id"]
+
+        for _ in range(n_draws):
+            response = client.post(
+                f"/contextual_mab/{id}/draw",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json=[
+                    {"context_id": 1, "context_value": 0},
+                    {"context_id": 2, "context_value": 0.5},
+                ],
+            )
+            assert response.status_code == 200
+            draw_id = response.json()["draw_id"]
+            response = client.put(
+                f"/contextual_mab/{id}/{draw_id}/1",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+
+        response = client.get(
+            f"/contextual_mab/{id}/outcomes",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+
+        assert response.status_code == 200
+        assert len(response.json()) == n_draws
+
 
 class TestNotifications:
     @fixture()

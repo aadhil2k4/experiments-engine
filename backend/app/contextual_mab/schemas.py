@@ -242,7 +242,7 @@ class CMABObservationResponse(BaseModel):
     reward: float
     context_val: list[float]
 
-    observation_id: int
+    draw_id: str
     observed_datetime_utc: datetime
 
     model_config = ConfigDict(from_attributes=True)
