@@ -27,13 +27,10 @@ import { AnimatePresence, motion } from "framer-motion";
 export default function NewExperiment() {
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(0); // 1 for forward, -1 for backward
-  const { experimentState, updateMethodType, resetState } =
-    useExperimentStore();
+  const { experimentState, resetState } = useExperimentStore();
   const [stepValidations, setStepValidations] = useState<StepValidation[]>([]);
   const { token } = useAuth();
   const router = useRouter();
-
-  type Methods = typeof AllSteps;
 
   const [steps, setSteps] = useState(AllSteps[experimentState.methodType]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -192,9 +189,6 @@ export default function NewExperiment() {
           >
             {currentStep === 0 ? (
               <AddBasicInfo
-                setMethodType={(method) =>
-                  updateMethodType(method as keyof Methods)
-                }
                 onValidate={(validation: StepValidation) =>
                   handleStepValidation(currentStep, validation)
                 }

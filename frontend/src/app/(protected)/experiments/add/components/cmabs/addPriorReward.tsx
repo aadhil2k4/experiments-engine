@@ -1,4 +1,3 @@
-"use client";
 import { useExperimentStore } from "../../../store/useExperimentStore";
 import { useCallback, useState, useEffect } from "react";
 import { Radio, RadioField, RadioGroup } from "@/components/catalyst/radio";
@@ -34,15 +33,17 @@ export default function CMABPriorRewardSelection({
 
   useEffect(() => {
     const { isValid, newErrors } = validateForm();
-    setErrors(newErrors);
-
-    if (onValidate) {
-      onValidate({
-        isValid,
-        errors: newErrors,
-      });
+    if (JSON.stringify(newErrors) !== JSON.stringify(errors)) {
+      setErrors(newErrors);
+      onValidate({ isValid, errors: newErrors });
     }
-  }, [validateForm, onValidate, experimentState]);
+  }, [validateForm, onValidate, errors]);
+
+  useEffect(() => {
+    const { isValid, newErrors } = validateForm();
+    setErrors(newErrors);
+    onValidate({ isValid, errors: newErrors });
+  }, []);
 
   return (
     <div>

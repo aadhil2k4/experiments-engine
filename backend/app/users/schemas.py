@@ -1,10 +1,9 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
-# not yet used.
 class UserCreate(BaseModel):
     """
     Pydantic model for user creation
@@ -19,7 +18,7 @@ class UserCreate(BaseModel):
 
 class UserCreateWithPassword(UserCreate):
     """
-    Pydantic model for user creation
+    Pydantic model for user creation with password.
     """
 
     password: str
@@ -39,6 +38,9 @@ class UserRetrieve(BaseModel):
     api_key_updated_datetime_utc: datetime
     created_datetime_utc: datetime
     updated_datetime_utc: datetime
+    is_active: bool
+    is_verified: bool
+    access_level: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,4 +52,41 @@ class KeyResponse(BaseModel):
 
     username: str
     new_api_key: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PasswordResetRequest(BaseModel):
+    """
+    Pydantic model for password reset request
+    """
+
+    username: EmailStr
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PasswordResetConfirm(BaseModel):
+    """
+    Pydantic model for password reset confirmation
+    """
+
+    token: str
+    new_password: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EmailVerificationRequest(BaseModel):
+    """
+    Pydantic model for email verification
+    """
+
+    token: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MessageResponse(BaseModel):
+    """
+    Pydantic model for generic message responses
+    """
+
+    message: str
     model_config = ConfigDict(from_attributes=True)
