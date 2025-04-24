@@ -51,6 +51,10 @@ interface ExperimentStore {
   updateName: (name: string) => void;
   updateDescription: (description: string) => void;
   updateMethodType: (methodType: MethodType) => void;
+  updateStickyAssignment: (stickyAssignment: boolean) => void;
+  updateAutoFail: (autoFail: boolean) => void;
+  updateAutoFailValue: (autoFailValue: number) => void;
+  updateAutoFailUnit: (autoFailUnit: "hours" | "days") => void;
 
   // Prior and reward type page
   updatePriorType: (priorType: PriorType) => void;
@@ -83,7 +87,14 @@ interface ExperimentStore {
 }
 
 const createInitialState = (): ExperimentState => {
-  const baseDescr = { name: "", description: "" };
+  const baseDescr = {
+    name: "",
+    description: "",
+    stickyAssignment: false,
+    autoFail: false,
+    autoFailValue: 10,
+    autoFailUnit: "days",
+  };
   const methodType: MethodType = "mab";
   const priorType: PriorType = "beta";
   const rewardType: RewardType = "binary";
@@ -128,6 +139,35 @@ export const useExperimentStore = create<ExperimentStore>()(
           experimentState: { ...state.experimentState, description },
         })),
 
+      updateStickyAssignment: (stickyAssignment: boolean) =>
+        set((state) => ({
+          experimentState: {
+            ...state.experimentState,
+            stickyAssignment,
+          },
+        })),
+
+      updateAutoFail: (autoFail: boolean) =>
+        set((state) => ({
+          experimentState: { ...state.experimentState, autoFail },
+        })),
+
+      updateAutoFailValue: (autoFailValue: number) =>
+        set((state) => ({
+          experimentState: {
+            ...state.experimentState,
+            autoFailValue,
+          },
+        })),
+
+      updateAutoFailUnit: (autoFailUnit: "hours" | "days") =>
+        set((state) => ({
+          experimentState: {
+            ...state.experimentState,
+            autoFailUnit,
+          },
+        })),
+
       // ------------ Method type update ------------
       updateMethodType: (newMethodType: MethodType) =>
         set((state) => {
@@ -135,21 +175,13 @@ export const useExperimentStore = create<ExperimentStore>()(
           if (newMethodType === experimentState.methodType)
             return { experimentState };
 
-          const baseDescr = {
-            name: experimentState.name,
-            description: experimentState.description,
-          };
-          const { rewardType, priorType, notifications } = experimentState;
-
           let newState: ExperimentState;
 
           if (newMethodType == "mab") {
             newState = {
-              ...baseDescr,
+              ...experimentState,
               methodType: newMethodType,
               priorType: "beta",
-              rewardType,
-              notifications,
               arms: [
                 {
                   name: "",
@@ -167,11 +199,9 @@ export const useExperimentStore = create<ExperimentStore>()(
             } as MABExperimentStateBeta;
           } else if (newMethodType == "cmab") {
             newState = {
-              ...baseDescr,
+              ...experimentState,
               methodType: newMethodType,
               priorType: "normal",
-              rewardType,
-              notifications,
               arms: [
                 {
                   name: "",
@@ -196,11 +226,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             } as CMABExperimentState;
           } else if (newMethodType == "ab") {
             newState = {
-              ...baseDescr,
+              ...experimentState,
               methodType: newMethodType,
-              priorType,
-              rewardType,
-              notifications,
               arms: [
                 {
                   name: "",
@@ -235,23 +262,14 @@ export const useExperimentStore = create<ExperimentStore>()(
           if (newPriorType === experimentState.priorType)
             return { experimentState };
 
-          // Create new state based on prior type
-          const baseState = {
-            name: experimentState.name,
-            description: experimentState.description,
-            methodType: experimentState.methodType,
-            rewardType: experimentState.rewardType,
-            notifications: experimentState.notifications,
-            priorType: newPriorType,
-          };
-
           let newState: ExperimentState;
           const baseArm = { name: "", description: "" };
 
           if (experimentState.methodType === "mab") {
             if (newPriorType === "beta") {
               newState = {
-                ...baseState,
+                ...experimentState,
+                priorType: newPriorType,
                 arms: experimentState.arms.map(() => ({
                   ...baseArm,
                   alpha: 1,
@@ -260,7 +278,8 @@ export const useExperimentStore = create<ExperimentStore>()(
               } as MABExperimentStateBeta;
             } else {
               newState = {
-                ...baseState,
+                ...experimentState,
+                priorType: newPriorType,
                 arms: experimentState.arms.map(() => ({
                   ...baseArm,
                   mu: 0,
@@ -270,7 +289,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             }
           } else if (experimentState.methodType === "cmab") {
             newState = {
-              ...baseState,
+              ...experimentState,
               priorType: "normal",
               arms: experimentState.arms.map(() => ({
                 ...baseArm,
@@ -281,7 +300,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             } as CMABExperimentState;
           } else {
             newState = {
-              ...baseState,
+              ...experimentState,
+              priorType: newPriorType,
               arms: experimentState.arms.map(() => ({
                 ...baseArm,
                 mean_posterior: 0,
