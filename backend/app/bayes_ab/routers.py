@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import authenticate_key, get_current_user
+from ..auth.dependencies import authenticate_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, Outcome, RewardLikelihood
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/bayes_ab", tags=["Bayesian A/B Testing"])
 @router.post("/", response_model=BayesianABResponse)
 async def create_ab_experiment(
     experiment: BayesianAB,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> BayesianABResponse:
     """
@@ -62,7 +62,7 @@ async def create_ab_experiment(
 
 @router.get("/", response_model=list[BayesianABResponse])
 async def get_bayes_abs(
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[BayesianABResponse]:
     """
@@ -95,7 +95,7 @@ async def get_bayes_abs(
 @router.get("/{experiment_id}", response_model=BayesianABResponse)
 async def get_bayes_ab(
     experiment_id: int,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> BayesianABResponse:
     """
@@ -124,7 +124,7 @@ async def get_bayes_ab(
 @router.delete("/{experiment_id}", response_model=dict)
 async def delete_bayes_ab(
     experiment_id: int,
-    user_db: Annotated[UserDB, Depends(get_current_user)],
+    user_db: Annotated[UserDB, Depends(get_verified_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> dict:
     """
@@ -150,7 +150,7 @@ async def draw_arm(
     draw_id: Optional[str] = None,
     user_db: UserDB = Depends(authenticate_key),
     asession: AsyncSession = Depends(get_async_session),
-) -> BayesABArmResponse:
+) -> BayesianABDrawResponse:
     """
     Get which arm to pull next for provided experiment.
     """

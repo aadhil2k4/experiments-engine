@@ -370,7 +370,7 @@ async def save_observation_to_db(
 
     draw.reward = reward
     draw.observed_datetime_utc = datetime.now(timezone.utc)
-    draw.observation_type = observation_type.value
+    draw.observation_type = observation_type
     asession.add(draw)
     await asession.commit()
     await asession.refresh(draw)

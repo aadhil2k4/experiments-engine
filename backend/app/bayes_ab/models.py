@@ -122,7 +122,7 @@ class BayesianABDrawDB(DrawsBaseDB):
 
     __tablename__ = "bayes_ab_draws"
 
-    draw_id: Mapped[int] = mapped_column(
+    draw_id: Mapped[str] = mapped_column(  # Changed from int to str
         ForeignKey("draws_base.draw_id", ondelete="CASCADE"),
         primary_key=True,
         nullable=False,
@@ -291,7 +291,7 @@ async def save_bayes_ab_observation_to_db(
     """
     draw.reward = reward
     draw.observed_datetime_utc = datetime.now(timezone.utc)
-    draw.observation_type = observation_type.value
+    draw.observation_type = observation_type
 
     await asession.commit()
     await asession.refresh(draw)
