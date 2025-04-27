@@ -279,7 +279,7 @@ async def delete_mab_by_id(
     return None
 
 
-async def get_rewards_by_experiment_arm_id(
+async def get_obs_by_experiment_arm_id(
     experiment_id: int, arm_id: int, user_id: int, asession: AsyncSession
 ) -> Sequence[MABDrawDB]:
     """
@@ -297,7 +297,7 @@ async def get_rewards_by_experiment_arm_id(
     return (await asession.execute(statement)).unique().scalars().all()
 
 
-async def get_all_rewards_by_experiment_id(
+async def get_all_obs_by_experiment_id(
     experiment_id: int, user_id: int, asession: AsyncSession
 ) -> Sequence[MABDrawDB]:
     """
@@ -370,7 +370,7 @@ async def save_observation_to_db(
 
     draw.reward = reward
     draw.observed_datetime_utc = datetime.now(timezone.utc)
-    draw.observation_type = ObservationType.USER
+    draw.observation_type = observation_type.value
     asession.add(draw)
     await asession.commit()
     await asession.refresh(draw)

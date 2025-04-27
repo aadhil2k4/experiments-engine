@@ -300,9 +300,9 @@ async def delete_contextual_mab_by_id(
     await asession.execute(
         delete(ContextualDrawDB).where(
             and_(
-                ContextualObservationDB.user_id == ObservationsBaseDB.user_id,
-                ContextualObservationDB.user_id == user_id,
-                ContextualObservationDB.experiment_id == experiment_id,
+                ContextualDrawDB.user_id == DrawsBaseDB.user_id,
+                ContextualDrawDB.user_id == user_id,
+                ContextualDrawDB.experiment_id == experiment_id,
             )
         )
     )
@@ -327,6 +327,7 @@ async def delete_contextual_mab_by_id(
             and_(
                 ContextualBanditDB.user_id == user_id,
                 ContextualBanditDB.experiment_id == experiment_id,
+                ContextualBanditDB.experiment_id == ExperimentBaseDB.experiment_id,
             )
         )
     )
@@ -338,13 +339,14 @@ async def save_contextual_obs_to_db(
     draw: ContextualDrawDB,
     reward: float,
     asession: AsyncSession,
+    observation_type: ObservationType = ObservationType.AUTO,
 ) -> ContextualDrawDB:
     """
     Save the observation to the database.
     """
     draw.reward = reward
     draw.observed_datetime_utc = datetime.now(timezone.utc)
-    draw.observation_type = ObservationType.USER
+    draw.observation_type = observation_type.value
 
     await asession.commit()
     await asession.refresh(draw)
