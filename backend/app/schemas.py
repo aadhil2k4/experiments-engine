@@ -168,3 +168,13 @@ allowed_combos_mab = [
     (ArmPriors.BETA, RewardLikelihood.BERNOULLI),
     (ArmPriors.NORMAL, RewardLikelihood.NORMAL),
 ]
+
+allowed_combos_cmab = [
+    (ArmPriors.NORMAL, RewardLikelihood.BERNOULLI),
+    (ArmPriors.NORMAL, RewardLikelihood.NORMAL),
+]
+
+allowed_combos_bayes_ab = [
+    (ArmPriors.NORMAL, RewardLikelihood.BERNOULLI),
+    (ArmPriors.NORMAL, RewardLikelihood.NORMAL),
+]

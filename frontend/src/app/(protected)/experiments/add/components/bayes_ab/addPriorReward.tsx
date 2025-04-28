@@ -2,55 +2,31 @@ import { useExperimentStore } from "../../../store/useExperimentStore";
 import { useCallback, useState, useEffect } from "react";
 import { Radio, RadioField, RadioGroup } from "@/components/catalyst/radio";
 import { Fieldset, Label, Description } from "@/components/catalyst/fieldset";
-import { PriorType, RewardType, StepComponentProps } from "../../../types";
+import { RewardType, StepComponentProps } from "../../../types";
 import { Heading } from "@/components/catalyst/heading";
 import { DividerWithTitle } from "@/components/Dividers";
 
-export default function MABPriorRewardSelection({
+export default function BayesianABRewardSelection({
   onValidate,
 }: StepComponentProps) {
-  const { experimentState, updatePriorType, updateRewardType } =
+  const { experimentState, updateRewardType } =
     useExperimentStore();
   const [errors, setErrors] = useState({
-    prior_type: "",
     reward_type: "",
   });
 
   const validateForm = useCallback(() => {
     let isValid = true;
     const newErrors = {
-      prior_type: "",
       reward_type: "",
     };
-
-    if (!experimentState.prior_type) {
-      newErrors.prior_type = "Please select a prior type";
-      isValid = false;
-    }
 
     if (!experimentState.reward_type) {
       newErrors.reward_type = "Please select a reward type";
       isValid = false;
     }
-
-    if (
-      experimentState.prior_type === "normal" &&
-      experimentState.reward_type === "binary"
-    ) {
-      newErrors.reward_type =
-        "Normal prior is not compatible with binary reward";
-      isValid = false;
-    }
-    if (
-      experimentState.prior_type === "beta" &&
-      experimentState.reward_type === "real-valued"
-    ) {
-      newErrors.reward_type =
-        "Beta prior is not compatible with real-valued reward";
-      isValid = false;
-    }
     return { isValid, newErrors };
-  }, [experimentState.prior_type, experimentState.reward_type]);
+  }, [experimentState.reward_type]);
 
   useEffect(() => {
     const { isValid, newErrors } = validateForm();
@@ -69,40 +45,9 @@ export default function MABPriorRewardSelection({
   return (
     <div>
       <div className="pt-5 flex w-full flex-wrap items-end justify-between gap-4 border-b border-zinc-950/10 pb-6 dark:border-white/10">
-        <Heading>Configure MAB Parameters</Heading>
+        <Heading>Configure Bayesian A/B Parameters</Heading>
       </div>
-      <Fieldset aria-label="MAB Parameters" className="pt-6">
-        <DividerWithTitle title="Prior Type" />
-        <RadioGroup
-          name="prior_type"
-          defaultValue=""
-          onChange={(value) => updatePriorType(value as PriorType)}
-          value={experimentState.prior_type}
-        >
-          <div className="mb-4" />
-          <Label>Select prior type for the experiment</Label>
-          <RadioField>
-            <Radio id="normal" value="normal" />
-            <Label htmlFor="normal">Normal</Label>
-            <Description>
-              Gaussian distribution; best for real-valued outcomes.
-            </Description>
-          </RadioField>
-
-          <RadioField>
-            <Radio id="beta" value="beta" />
-            <Label htmlFor="beta">Beta</Label>
-            <Description>
-              Beta distribution; best for binary outcomes.
-            </Description>
-          </RadioField>
-        </RadioGroup>
-        {errors.prior_type ? (
-          <p className="text-red-500 text-xs mt-1">{errors.prior_type}</p>
-        ) : (
-          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
-        )}
-
+      <Fieldset aria-label="Bayesian A/B Parameters" className="pt-6">
         <DividerWithTitle title="Outcome Type" />
         <RadioGroup
           name="reward_type"

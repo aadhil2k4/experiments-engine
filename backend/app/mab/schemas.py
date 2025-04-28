@@ -28,18 +28,18 @@ class Arm(BaseModel):
     )
 
     # prior variables
-    alpha: Optional[float] = Field(
+    alpha_init: Optional[float] = Field(
         default=None, examples=[None, 1.0], description="Alpha parameter for Beta prior"
     )
-    beta: Optional[float] = Field(
+    beta_init: Optional[float] = Field(
         default=None, examples=[None, 1.0], description="Beta parameter for Beta prior"
     )
-    mu: Optional[float] = Field(
+    mu_init: Optional[float] = Field(
         default=None,
         examples=[None, 0.0],
         description="Mean parameter for Normal prior",
     )
-    sigma: Optional[float] = Field(
+    sigma_init: Optional[float] = Field(
         default=None,
         examples=[None, 1.0],
         description="Standard deviation parameter for Normal prior",
@@ -55,9 +55,9 @@ class Arm(BaseModel):
         """
         Check if the values are unique.
         """
-        alpha = self.alpha
-        beta = self.beta
-        sigma = self.sigma
+        alpha = self.alpha_init
+        beta = self.beta_init
+        sigma = self.sigma_init
         if alpha is not None and alpha <= 0:
             raise ValueError("Alpha must be greater than 0.")
         if beta is not None and beta <= 0:
@@ -73,6 +73,10 @@ class ArmResponse(Arm):
     """
 
     arm_id: int
+    alpha: Optional[float]
+    beta: Optional[float]
+    mu: Optional[float]
+    sigma: Optional[float]
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -186,8 +190,8 @@ class MultiArmedBandit(MultiArmedBanditBase):
         arms = self.arms
 
         prior_params = {
-            ArmPriors.BETA: ("alpha", "beta"),
-            ArmPriors.NORMAL: ("mu", "sigma"),
+            ArmPriors.BETA: ("alpha_init", "beta_init"),
+            ArmPriors.NORMAL: ("mu_init", "sigma_init"),
         }
 
         for arm in arms:

@@ -10,6 +10,7 @@ from ..schemas import (
     Notifications,
     NotificationsResponse,
     RewardLikelihood,
+    allowed_combos_cmab,
 )
 
 
@@ -76,6 +77,11 @@ class ContextualArm(BaseModel):
         examples=[1.0, 0.5, 2.0],
         description="Standard deviation parameter for Normal prior",
     )
+    n_outcomes: Optional[int] = Field(
+        default=0,
+        description="Number of outcomes for the arm",
+        examples=[0, 10, 15],
+    )
 
     @model_validator(mode="after")
     def check_values(self) -> Self:
@@ -84,7 +90,7 @@ class ContextualArm(BaseModel):
         """
         sigma = self.sigma_init
         if sigma is not None and sigma <= 0:
-            raise ValueError("sigma must be greater than 0.")
+            raise ValueError("Std dev must be greater than 0.")
         return self
 
     model_config = ConfigDict(from_attributes=True)
@@ -194,14 +200,13 @@ class ContextualBandit(ContextualBanditBase):
         return self
 
     @model_validator(mode="after")
-    def check_prior_type(self) -> Self:
+    def check_prior_reward_type_combo(self) -> Self:
         """
-        Check if the context of the experiment is valid.
+        Validate that the prior and reward type combination is allowed.
         """
-        if self.prior_type != ArmPriors.NORMAL:
-            raise ValueError(
-                f"{self.prior_type.value} prior is not supported for contextual arms."
-            )
+
+        if (self.prior_type, self.reward_type) not in allowed_combos_cmab:
+            raise ValueError("Prior and reward type combo not supported.")
         return self
 
     model_config = ConfigDict(from_attributes=True)
@@ -218,6 +223,7 @@ class ContextualBanditResponse(ContextualBanditBase):
     contexts: list[ContextResponse]
     notifications: list[NotificationsResponse]
     created_datetime_utc: datetime
+    last_trial_datetime_utc: Optional[datetime] = None
     n_trials: int
 
     model_config = ConfigDict(from_attributes=True)

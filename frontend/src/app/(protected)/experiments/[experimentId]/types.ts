@@ -15,6 +15,10 @@ interface MABExperimentDetails {
 interface MABArmDetails {
   name: string;
   description: string;
+  alpha_init: number;
+  beta_init: number;
+  mu_init: number;
+  sigma_init: number;
   alpha: number;
   beta: number;
   mu: number;

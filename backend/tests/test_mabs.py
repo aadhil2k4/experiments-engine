@@ -18,14 +18,14 @@ base_beta_binom_payload = {
         {
             "name": "arm 1",
             "description": "arm 1 description",
-            "alpha": 5,
-            "beta": 1,
+            "alpha_init": 5,
+            "beta_init": 1,
         },
         {
             "name": "arm 2",
             "description": "arm 2 description",
-            "alpha": 1,
-            "beta": 4,
+            "alpha_init": 1,
+            "beta_init": 4,
         },
     ],
     "notifications": {
@@ -42,8 +42,18 @@ base_normal_payload = base_beta_binom_payload.copy()
 base_normal_payload["prior_type"] = "normal"
 base_normal_payload["reward_type"] = "real-valued"
 base_normal_payload["arms"] = [
-    {"name": "arm 1", "description": "arm 1 description", "mu": 2, "sigma": 3},
-    {"name": "arm 2", "description": "arm 2 description", "mu": 3, "sigma": 7},
+    {
+        "name": "arm 1",
+        "description": "arm 1 description",
+        "mu_init": 2,
+        "sigma_init": 3,
+    },
+    {
+        "name": "arm 2",
+        "description": "arm 2 description",
+        "mu_init": 3,
+        "sigma_init": 7,
+    },
 ]
 
 
@@ -95,10 +105,10 @@ class TestMab:
             payload_beta_binom["reward_type"] = "invalid"
             return payload_beta_binom
         if request.param == "invalid_alpha":
-            payload_beta_binom["arms"][0]["alpha"] = -1
+            payload_beta_binom["arms"][0]["alpha_init"] = -1
             return payload_beta_binom
         if request.param == "invalid_beta":
-            payload_beta_binom["arms"][0]["beta"] = -1
+            payload_beta_binom["arms"][0]["beta_init"] = -1
             return payload_beta_binom
         if request.param == "invalid_combo_1":
             payload_beta_binom["prior_type"] = "normal"
@@ -107,10 +117,10 @@ class TestMab:
             payload_beta_binom["reward_type"] = "continuous"
             return payload_beta_binom
         if request.param == "incorrect_params":
-            payload_beta_binom["arms"][0].pop("alpha")
+            payload_beta_binom["arms"][0].pop("alpha_init")
             return payload_beta_binom
         if request.param == "invalid_sigma":
-            payload_normal["arms"][0]["sigma"] = 0.0
+            payload_normal["arms"][0]["sigma_init"] = 0.0
             return payload_normal
         else:
             raise ValueError("Invalid parameter")

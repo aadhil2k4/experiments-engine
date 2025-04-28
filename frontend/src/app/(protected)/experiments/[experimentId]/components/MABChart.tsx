@@ -22,10 +22,23 @@ export default function MABChart({
     return <div>No data available</div>;
   }
 
+  const priorBetaData = experimentData.arms.map((arm) => ({
+    name: arm.name,
+    alpha: arm.alpha_init,
+    beta: arm.beta_init,
+  }));
+
+
   const posteriorBetaData = experimentData.arms.map((arm) => ({
     name: arm.name,
     alpha: arm.alpha,
     beta: arm.beta,
+  }));
+
+  const priorGaussianData = experimentData.arms.map((arm) => ({
+    name: arm.name,
+    mu: arm.mu_init,
+    sigma: arm.sigma_init,
   }));
 
   const posteriorGaussianData = experimentData.arms.map((arm) => ({
@@ -57,9 +70,9 @@ export default function MABChart({
       <CardContent>
         <div className="h-[300px] w-full">
           {experimentData.prior_type == "beta" ? (
-            <BetaLineChart posteriors={posteriorBetaData} priors={[]} />
+            <BetaLineChart posteriors={posteriorBetaData} priors={priorBetaData} showPriors={showPriors} />
           ) : (
-            <NormalLineChart posteriors={posteriorGaussianData} priors={[]} />
+            <NormalLineChart posteriors={posteriorGaussianData} priors={priorGaussianData} showPriors={showPriors} />
           )}
         </div>
       </CardContent>

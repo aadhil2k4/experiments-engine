@@ -83,6 +83,10 @@ class MABArmDB(ArmBaseDB):
     beta: Mapped[float] = mapped_column(Float, nullable=True)
     mu: Mapped[float] = mapped_column(Float, nullable=True)
     sigma: Mapped[float] = mapped_column(Float, nullable=True)
+    alpha_init: Mapped[float] = mapped_column(Float, nullable=True)
+    beta_init: Mapped[float] = mapped_column(Float, nullable=True)
+    mu_init: Mapped[float] = mapped_column(Float, nullable=True)
+    sigma_init: Mapped[float] = mapped_column(Float, nullable=True)
     experiment: Mapped[MultiArmedBanditDB] = relationship(
         "MultiArmedBanditDB", back_populates="arms", lazy="joined"
     )
@@ -105,6 +109,10 @@ class MABArmDB(ArmBaseDB):
             "beta": self.beta,
             "mu": self.mu,
             "sigma": self.sigma,
+            "alpha_init": self.alpha_init,
+            "beta_init": self.beta_init,
+            "mu_init": self.mu_init,
+            "sigma_init": self.sigma_init,
             "draws": [draw.to_dict() for draw in self.draws],
         }
 
@@ -157,7 +165,17 @@ async def save_mab_to_db(
     """
     arms = [
         MABArmDB(
-            **arm.model_dump(),
+            name=arm.name,
+            description=arm.description,
+            alpha_init=arm.alpha_init,
+            beta_init=arm.beta_init,
+            mu_init=arm.mu_init,
+            sigma_init=arm.sigma_init,
+            n_outcomes=arm.n_outcomes,
+            alpha=arm.alpha_init,
+            beta=arm.beta_init,
+            mu=arm.mu_init,
+            sigma=arm.sigma_init,
             user_id=user_id,
         )
         for arm in experiment.arms
@@ -261,7 +279,7 @@ async def delete_mab_by_id(
     return None
 
 
-async def get_rewards_by_experiment_arm_id(
+async def get_obs_by_experiment_arm_id(
     experiment_id: int, arm_id: int, user_id: int, asession: AsyncSession
 ) -> Sequence[MABDrawDB]:
     """
@@ -279,7 +297,7 @@ async def get_rewards_by_experiment_arm_id(
     return (await asession.execute(statement)).unique().scalars().all()
 
 
-async def get_all_rewards_by_experiment_id(
+async def get_all_obs_by_experiment_id(
     experiment_id: int, user_id: int, asession: AsyncSession
 ) -> Sequence[MABDrawDB]:
     """
@@ -352,7 +370,7 @@ async def save_observation_to_db(
 
     draw.reward = reward
     draw.observed_datetime_utc = datetime.now(timezone.utc)
-    draw.observation_type = ObservationType.USER
+    draw.observation_type = observation_type
     asession.add(draw)
     await asession.commit()
     await asession.refresh(draw)

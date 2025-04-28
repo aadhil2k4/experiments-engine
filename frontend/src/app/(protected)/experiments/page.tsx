@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect } from "react";
 import EmptyPage from "./components/EmptyPage";
-import { getAllMABExperiments, getAllCMABExperiments } from "./api";
-import { MABBeta, MABNormal, CMAB, MethodType } from "./types";
+import { getAllMABExperiments, getAllCMABExperiments, getAllBayesianABExperiments } from "./api";
+import { MABBeta, MABNormal, CMAB, BayesianAB, MethodType } from "./types";
 import ExperimentCard from "./components/ExperimentCard";
 import Hourglass from "@/components/Hourglass";
 import FloatingAddButton from "./components/FloatingAddButton";
@@ -14,29 +14,46 @@ export default function Experiments() {
   const [haveExperiments, setHaveExperiments] = React.useState(false);
   const [mabExperiments, setMABExperiments] = React.useState<MABBeta[]>([]);
   const [cmabExperiments, setCMABExperiments] = React.useState<CMAB[]>([]);
+  const [bayesExperiments, setBayesExperiments] = React.useState<BayesianAB[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadingError, setLoadingError] = React.useState("")
 
   const { token } = useAuth();
 
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    getAllMABExperiments(token).then((data) => {
-      setMABExperiments(data);
-    });
-    getAllCMABExperiments(token).then((data) => {
-      setCMABExperiments(data);
-    });
-    setLoading(false);
+
+    const fetchData = async() => {
+    try {
+      const [mabData, cmabData, bayesabData] = await Promise.all([
+        getAllMABExperiments(token),
+        getAllCMABExperiments(token),
+        getAllBayesianABExperiments(token),
+      ]);
+      setMABExperiments(mabData);
+      setCMABExperiments(cmabData);
+      setBayesExperiments(bayesabData);
+    }
+    catch (error) {
+      console.error("Error fetching experiments:", error);
+      setLoadingError("Error fetching experiments: " + error)
+    }
+    finally {
+      setLoading(false);
+
+    }
+  };
+  fetchData();
   }, [token]);
 
   useEffect(() => {
-    if (mabExperiments.length > 0 || cmabExperiments.length > 0) {
+    if (mabExperiments.length > 0 || cmabExperiments.length > 0 || bayesExperiments.length > 0) {
       setHaveExperiments(true);
     } else {
       setHaveExperiments(false);
     }
-  }, [mabExperiments, cmabExperiments]);
+  }, [mabExperiments, cmabExperiments, bayesExperiments]);
 
   return loading ? (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
@@ -71,6 +88,19 @@ export default function Experiments() {
           </div>
         </div>
       )}
+      {bayesExperiments.length > 0 && (
+        <div>
+          <DividerWithTitle title="Bayesian A/B Experiments" />
+          <div className="my-4"></div>
+          <div>
+            <ExperimentCardGrid
+              experiments={bayesExperiments}
+              methodType="bayes_ab"
+            />
+          </div>
+        </div>
+      )}
+      {/* Floating Add Button */}
       <Link href="/experiments/add">
         <FloatingAddButton />
       </Link>
@@ -82,7 +112,7 @@ export default function Experiments() {
     >
       <main className="flex flex-col gap-8 row-start-1 items-center sm:items-start">
         <span className="content-center grow">
-          <EmptyPage />
+          <EmptyPage loadingError={loadingError} />
         </span>
       </main>
     </div>
@@ -93,7 +123,7 @@ const ExperimentCardGrid = ({
   experiments,
   methodType,
 }: {
-  experiments: MABBeta[] | MABNormal[] | CMAB[];
+  experiments: MABBeta[] | MABNormal[] | CMAB[] | BayesianAB[];
   methodType: MethodType;
 }) => {
   return (

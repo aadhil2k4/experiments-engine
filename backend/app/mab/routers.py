@@ -18,7 +18,7 @@ from .models import (
     MultiArmedBanditDB,
     delete_mab_by_id,
     get_all_mabs,
-    get_all_rewards_by_experiment_id,
+    get_all_obs_by_experiment_id,
     get_draw_by_id,
     get_mab_by_id,
     save_draw_to_db,
@@ -239,7 +239,7 @@ async def get_outcomes(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"
         )
 
-    rewards = await get_all_rewards_by_experiment_id(
+    rewards = await get_all_obs_by_experiment_id(
         experiment_id=experiment.experiment_id,
         user_id=user_db.user_id,
         asession=asession,

@@ -224,6 +224,7 @@ async def save_contextual_mab_to_db(
                     np.identity(len(experiment.contexts)) * arm.sigma_init
                 ).tolist(),
                 user_id=user_id,
+                n_outcomes=arm.n_outcomes,
             )
         )
 
@@ -315,7 +316,6 @@ async def delete_contextual_mab_by_id(
     await asession.execute(
         delete(ContextualArmDB).where(
             and_(
-                ContextualArmDB.experiment_id == ExperimentBaseDB.experiment_id,
                 ContextualArmDB.user_id == user_id,
                 ContextualArmDB.experiment_id == experiment_id,
             )
@@ -325,9 +325,9 @@ async def delete_contextual_mab_by_id(
     await asession.execute(
         delete(ContextualBanditDB).where(
             and_(
-                ContextualBanditDB.experiment_id == ExperimentBaseDB.experiment_id,
                 ContextualBanditDB.user_id == user_id,
                 ContextualBanditDB.experiment_id == experiment_id,
+                ContextualBanditDB.experiment_id == ExperimentBaseDB.experiment_id,
             )
         )
     )
@@ -339,13 +339,14 @@ async def save_contextual_obs_to_db(
     draw: ContextualDrawDB,
     reward: float,
     asession: AsyncSession,
+    observation_type: ObservationType = ObservationType.AUTO,
 ) -> ContextualDrawDB:
     """
     Save the observation to the database.
     """
     draw.reward = reward
     draw.observed_datetime_utc = datetime.now(timezone.utc)
-    draw.observation_type = ObservationType.USER
+    draw.observation_type = observation_type  # Remove .value, pass enum directly
 
     await asession.commit()
     await asession.refresh(draw)
