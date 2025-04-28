@@ -43,14 +43,14 @@ const methodInfo = {
       "Contextual bandits extend the multi-armed bandit approach by considering contextual information when making decisions. This allows the algorithm to learn which option performs best in specific contexts or for specific user segments. It's particularly useful when different users or situations might respond differently to the same options.",
     disabled: false,
   },
-  ab: {
-    title: "A/B Testing",
+  bayes_ab: {
+    title: "Bayesian A/B Testing",
     description:
       "A method that compares two or more variants against each other.",
-    infoTitle: "About A/B Testing",
+    infoTitle: "About Bayesian A/B Testing",
     infoDescription:
-      "A/B testing is a controlled experiment where two or more variants are shown to users at random to determine which performs better according to predefined metrics. Unlike bandit methods, A/B tests typically maintain fixed traffic allocation throughout the experiment duration, focusing on statistical significance rather than reward maximization.",
-    disabled: true,
+      "Bayesian A/B testing is a controlled experiment where two or more variants are shown to users at random to determine which performs better according to predefined metrics. Unlike bandit methods, A/B tests typically maintain fixed traffic allocation throughout the experiment duration, and only returns the better performing arm at the end of the experiment.",
+    disabled: false,
   },
 };
 export default function AddBasicInfo({

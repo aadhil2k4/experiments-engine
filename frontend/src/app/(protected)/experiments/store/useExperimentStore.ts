@@ -14,7 +14,7 @@ import type {
   NewMABArmNormal,
   NewBayesianABArm,
   NewContext,
-  Notifications,
+  Notifications
 } from "../types";
 
 // Type guards for better type safety
@@ -316,7 +316,7 @@ export const useExperimentStore = create<ExperimentStore>()(
               })) as NewCMABArm[],
               contexts: (experimentState as CMABExperimentState).contexts,
             } as CMABExperimentState;
-          } else {
+          } else if (experimentState.methodType === "bayes_ab"){
             newState = {
               ...experimentState,
               priorType: newPriorType,
@@ -326,6 +326,8 @@ export const useExperimentStore = create<ExperimentStore>()(
                 sigma_init: 1,
               })) as NewBayesianABArm[],
             } as BayesianABState;
+          } else {
+            throw new Error("Invalid method type");
           }
 
           return { experimentState: newState };
@@ -367,13 +369,15 @@ export const useExperimentStore = create<ExperimentStore>()(
               arms: validatedArms,
             };
             return { experimentState: updatedState };
-          } else {
+          } else if (isBayesianABState(experimentState)) {
             const validatedArms = newArms as NewBayesianABArm[];
             const updatedState: BayesianABState = {
               ...experimentState,
               arms: validatedArms,
             };
             return { experimentState: updatedState };
+          } else {
+            throw new Error("Invalid method type")
           }
         }),
 
@@ -475,20 +479,10 @@ export const useExperimentStore = create<ExperimentStore>()(
                 arms: [...experimentState.arms, newArm],
               },
             };
-          } else {
-            const newArm = {
-              name: "",
-              description: "",
-              mu_init: 0,
-              sigma_init: 1,
-            } as NewBayesianABArm;
-            return {
-              experimentState: {
-                ...experimentState,
-                arms: [...experimentState.arms, newArm],
-              },
-            };
+          } else if (isBayesianABState(experimentState)){
+            throw new Error("Adding arms for Bayesian A/B experiments is not currently supported");
           }
+          return { experimentState }; // Return original state for any other case
         }),
 
       removeArm: (index: number) =>

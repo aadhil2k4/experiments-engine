@@ -16,6 +16,7 @@ export default function Experiments() {
   const [cmabExperiments, setCMABExperiments] = React.useState<CMAB[]>([]);
   const [bayesExperiments, setBayesExperiments] = React.useState<BayesianAB[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadingError, setLoadingError] = React.useState("")
 
   const { token } = useAuth();
 
@@ -36,6 +37,7 @@ export default function Experiments() {
     }
     catch (error) {
       console.error("Error fetching experiments:", error);
+      setLoadingError("Error fetching experiments: " + error)
     }
     finally {
       setLoading(false);
@@ -110,7 +112,7 @@ export default function Experiments() {
     >
       <main className="flex flex-col gap-8 row-start-1 items-center sm:items-start">
         <span className="content-center grow">
-          <EmptyPage />
+          <EmptyPage loadingError={loadingError} />
         </span>
       </main>
     </div>
