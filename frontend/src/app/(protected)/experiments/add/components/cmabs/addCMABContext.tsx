@@ -104,9 +104,9 @@ export default function AddCMABContext({ onValidate }: StepComponentProps) {
               <div className="md:flex md:flex-row md:space-x-8 md:space-y-0 items-start">
                 <div className="basis-1/2">
                   <div className="flex flex-col mb-4">
-                    <div className="flex flex-row">
+                    <div className="flex flex-row items-start">
                       <Label
-                        className="basis-1/4 mt-3 font-medium"
+                        className="basis-1/4 mt-2 font-medium"
                         htmlFor={`context-${index + 1}-name`}
                       >
                         Name
@@ -134,9 +134,9 @@ export default function AddCMABContext({ onValidate }: StepComponentProps) {
                     </div>
                   </div>
                   <div className="flex flex-col">
-                    <div className="flex flex-row">
+                    <div className="flex flex-row items-start">
                       <Label
-                        className="basis-1/4 mt-3 font-medium"
+                        className="basis-1/4 mt-2 font-medium"
                         htmlFor={`context-${index + 1}-description`}
                       >
                         Description
@@ -169,8 +169,8 @@ export default function AddCMABContext({ onValidate }: StepComponentProps) {
 
                 <div className="basis-1/2 grow">
                   <div className="flex flex-col mb-4">
-                    <div className="flex flex-row">
-                      <Label className="basis-1/4 mt-3 font-medium">
+                    <div className="flex flex-row items-start">
+                      <Label className="basis-1/4 mt-2 font-medium">
                         Context type
                       </Label>
                       <div className="basis-3/4 flex flex-col">
@@ -181,14 +181,14 @@ export default function AddCMABContext({ onValidate }: StepComponentProps) {
                               value_type: value as ContextType,
                             });
                           }}
-                          className="space-y-2"
+                          className="space-y-1/2"
                         >
                           <div className="flex items-start space-x-2 rounded-md border border-gray-800 p-3 transition-colors data-[state=checked]:border-primary data-[state=checked]:border-2 hover:bg-transparent">
                             <RadioGroupItem
                               value="binary"
                               id={`context-${index}-binary`}
                             />
-                            <div className="flex flex-col">
+                            <div className="flex flex-col items-start">
                               <Label
                                 htmlFor={`context-${index}-binary`}
                                 className="font-medium"
@@ -203,7 +203,7 @@ export default function AddCMABContext({ onValidate }: StepComponentProps) {
                               value="real-valued"
                               id={`context-${index}-real-valued`}
                             />
-                            <div className="flex flex-col">
+                            <div className="flex flex-col items-start">
                               <Label
                                 htmlFor={`context-${index}-real-valued`}
                                 className="font-medium"

@@ -148,9 +148,9 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
             <div className="md:flex md:flex-row md:space-x-8 md:space-y-0 items-start">
               <div className="basis-1/2">
                 <div className="flex flex-col mb-4">
-                  <div className="flex flex-row">
+                  <div className="flex flex-row items-start">
                     <Label
-                      className="basis-1/4 mt-3 font-medium"
+                      className="basis-1/4 mt-2 font-medium"
                       htmlFor={`arm-${index + 1}-name`}
                     >
                       Name
@@ -176,9 +176,9 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  <div className="flex flex-row">
+                  <div className="flex flex-row items-start">
                     <Label
-                      className="basis-1/4 mt-3 font-medium"
+                      className="basis-1/4 mt-2 font-medium"
                       htmlFor={`arm-${index + 1}-description`}
                     >
                       Description
@@ -207,9 +207,9 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
 
               <div className="basis-1/2 grow">
                 <div className="flex flex-col mb-4">
-                  <div className="flex flex-row">
+                  <div className="flex flex-row items-start">
                     <Label
-                      className="basis-1/4 mt-3 font-medium"
+                      className="basis-1/4 mt-2 font-medium"
                       htmlFor={`arm-${index + 1}-mu_init`}
                     >
                       Mean prior
@@ -240,9 +240,9 @@ export default function AddCMABArms({ onValidate }: StepComponentProps) {
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  <div className="flex flex-row">
+                  <div className="flex flex-row items-start">
                     <Label
-                      className="basis-1/4 mt-3 font-medium"
+                      className="basis-1/4 mt-2 font-medium"
                       htmlFor={`arm-${index + 1}-sigma`}
                     >
                       Standard deviation

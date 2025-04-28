@@ -138,7 +138,7 @@ const AppSidebar = React.memo(function AppSidebar({
     }
   }, [token]);
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <WorkspaceSwitcher workspaces={data.workspaces} />
       </SidebarHeader>

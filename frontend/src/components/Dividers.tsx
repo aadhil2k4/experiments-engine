@@ -2,7 +2,7 @@ import React from "react";
 
 export function DividerWithTitle({ title }: { title: string }) {
   return (
-    <div className="relative mt-8">
+    <div className="relative mt-8 mb-4">
       <div aria-hidden="true" className="absolute inset-0 flex items-center">
         <div className="w-full border-t " />
       </div>

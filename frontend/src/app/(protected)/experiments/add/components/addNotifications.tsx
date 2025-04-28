@@ -75,9 +75,10 @@ export default function AddNotifications({ onValidate }: StepComponentProps) {
       </div>
       <div className="pt-6 space-y-4" aria-label="select notifications">
         <div className="space-y-6">
-          <div className="flex items-start space-x-2">
+          <div className="flex items-start space-x-4">
             <Checkbox
               id="trial-completion"
+              className="mt-1"
               checked={experimentState.notifications.onTrialCompletion || false}
               onCheckedChange={(checked) =>
                 updateNotifications({
@@ -124,9 +125,10 @@ export default function AddNotifications({ onValidate }: StepComponentProps) {
             </div>
           </div>
 
-          <div className="flex items-start space-x-2">
+          <div className="flex items-start space-x-4">
             <Checkbox
               id="days-elapsed"
+              className="mt-1"
               checked={experimentState.notifications.onDaysElapsed || false}
               onCheckedChange={(checked) =>
                 updateNotifications({
@@ -171,9 +173,10 @@ export default function AddNotifications({ onValidate }: StepComponentProps) {
             </div>
           </div>
 
-          <div className="flex items-start space-x-2">
+          <div className="flex items-start space-x-4">
             <Checkbox
               id="percent-better"
+              className="mt-1"
               disabled={true}
               checked={experimentState.notifications.onPercentBetter || false}
               onCheckedChange={(checked) =>
