@@ -87,14 +87,14 @@ export default function LoginPage() {
                   alt="Logo"
                   className="dark:hidden"
                   width={400}
-                  height={100}
+                  height={81}
                 />
                 <Image
                   src={logoDark}
                   alt="Logo"
                   className="hidden dark:block"
                   width={400}
-                  height={100}
+                  height={81}
                 />
               </div>
               Welcome back
