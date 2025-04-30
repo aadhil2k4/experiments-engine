@@ -117,7 +117,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-100 dark:from-indigo-950 dark:to-blue-950 p-4">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -129,11 +129,19 @@ export default function LoginPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-semibold text-center">
               <div className="mb-5 flex justify-center">
-                <Image src={logoLight} alt="Logo" className="dark:hidden" />
+                <Image
+                  src={logoLight}
+                  alt="Logo"
+                  className="dark:hidden"
+                  width={400}
+                  height={100}
+                />
                 <Image
                   src={logoDark}
                   alt="Logo"
                   className="hidden dark:block"
+                  width={400}
+                  height={100}
                 />
               </div>
               Welcome
