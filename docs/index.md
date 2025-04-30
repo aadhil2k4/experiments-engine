@@ -8,8 +8,8 @@
 </style>
 
 <div align="center" style="text-align:center; background:none; margin: 0 auto;">
-  <img src="images/ExE_logo_dark.svg#only-dark" alt="ExE logo dark mode" width="100%" style="max-width: 100%; height: auto;" />
-  <img src="images/ExE_logo_light.svg#only-light" alt="ExE logo light mode" width="100%" style="max-width: 100%; height: auto;" />
+  <img src="images/ExperimentsEngine-DarkBG.svg#only-dark" alt="ExE logo dark mode" width="100%" style="max-width: 100%; height: auto;" />
+  <img src="images/ExperimentsEngine-White.svg#only-light" alt="ExE logo light mode" width="100%" style="max-width: 100%; height: auto;" />
 </div>
 
 ## What is the Experiments Engine?
@@ -63,7 +63,7 @@ Here are some ideas our partners are interested in testing out:
 - [x] What is the best time to send messages to ensure users engage with it?
 - [x] Will this new feature lead to greater time spent on the platform?
 
-    ## Design principles
+## Design principles
 
 Here are the principles that guide the design of ExE:
 
