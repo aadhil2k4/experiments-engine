@@ -16,12 +16,12 @@ from ..config import CHECK_API_LIMIT, DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUO
 from ..database import get_async_session
 from ..users.models import (
     UserDB,
-    UserNotFoundError,
     get_user_by_api_key,
     get_user_by_username,
     save_user_to_db,
     update_user_verification_status,
 )
+from ..users.exceptions import UserNotFoundError
 from ..users.schemas import UserCreate
 from ..utils import (
     generate_key,

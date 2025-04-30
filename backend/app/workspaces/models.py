@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    and_,
     case,
     exists,
     select,
@@ -16,6 +17,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.exc import NoResultFound
+from ..users.exceptions import UserNotFoundError
 
 from ..models import Base, ExperimentBaseDB
 from ..users.schemas import UserCreate
@@ -75,6 +78,10 @@ class WorkspaceDB(Base):
         "ExperimentBaseDB", back_populates="workspace", cascade="all, delete-orphan"
     )
 
+    pending_invitations: Mapped[list["PendingInvitationDB"]] = relationship(
+        "PendingInvitationDB", back_populates="workspace", cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         """Define the string representation for the `WorkspaceDB` class."""
         return f"<Workspace '{self.workspace_name}' mapped to workspace ID `{self.workspace_id}`>"
@@ -115,6 +122,118 @@ class UserWorkspaceDB(Base):
     def __repr__(self) -> str:
         """Define the string representation for the `UserWorkspaceDB` class."""
         return f"<User ID '{self.user_id} has role '{self.user_role.value}' set for workspace ID '{self.workspace_id}'>."
+
+
+class PendingInvitationDB(Base):
+    """ORM for managing pending workspace invitations."""
+
+    __tablename__ = "pending_invitations"
+
+    invitation_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("workspace.workspace_id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[UserRoles] = mapped_column(
+        Enum(UserRoles, native_enum=False), nullable=False
+    )
+    inviter_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"), nullable=False
+    )
+    created_datetime_utc: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    workspace: Mapped["WorkspaceDB"] = relationship(
+        "WorkspaceDB", back_populates="pending_invitations"
+    )
+    
+    def __repr__(self) -> str:
+        return f"<Invitation for {self.email} to workspace {self.workspace_id} with role {self.role}>"
+
+
+async def get_users_in_workspace(
+    *, asession: AsyncSession, workspace_db: WorkspaceDB
+) -> Sequence[UserWorkspaceDB]:
+    """Get all users in a workspace with their roles."""
+    stmt = (
+        select(UserWorkspaceDB)
+        .where(UserWorkspaceDB.workspace_id == workspace_db.workspace_id)
+    )
+    result = await asession.execute(stmt)
+    return result.unique().scalars().all()
+
+async def get_user_by_user_id(
+    user_id: int, asession: AsyncSession
+) -> "UserDB":
+    """Get a user by user ID."""
+    stmt = select(UserDB).where(UserDB.user_id == user_id)
+    result = await asession.execute(stmt)
+    try:
+        return result.scalar_one()
+    except NoResultFound as e:
+        raise UserNotFoundError(f"User with ID {user_id} not found") from e
+
+async def remove_user_from_workspace(
+    *, asession: AsyncSession, user_db: "UserDB", workspace_db: WorkspaceDB
+) -> None:
+    """Remove a user from a workspace."""
+    # Check if user exists in workspace
+    stmt = select(UserWorkspaceDB).where(
+        and_(
+            UserWorkspaceDB.user_id == user_db.user_id,
+            UserWorkspaceDB.workspace_id == workspace_db.workspace_id,
+        )
+    )
+    result = await asession.execute(stmt)
+    user_workspace = result.scalar_one_or_none()
+    
+    if not user_workspace:
+        raise UserNotFoundInWorkspaceError(
+            f"User '{user_db.username}' not found in workspace '{workspace_db.workspace_name}'."
+        )
+    
+    # Delete the relationship
+    await asession.delete(user_workspace)
+    await asession.commit()
+
+async def create_pending_invitation(
+    *,
+    asession: AsyncSession,
+    email: str,
+    workspace_db: WorkspaceDB,
+    role: UserRoles,
+    inviter_id: int,
+) -> PendingInvitationDB:
+    """Create a pending invitation."""
+    invitation = PendingInvitationDB(
+        email=email,
+        workspace_id=workspace_db.workspace_id,
+        role=role,
+        inviter_id=inviter_id,
+        created_datetime_utc=datetime.now(timezone.utc),
+    )
+    
+    asession.add(invitation)
+    await asession.commit()
+    await asession.refresh(invitation)
+    
+    return invitation
+
+async def get_pending_invitations_by_email(
+    *, asession: AsyncSession, email: str
+) -> Sequence[PendingInvitationDB]:
+    """Get all pending invitations for an email."""
+    stmt = select(PendingInvitationDB).where(PendingInvitationDB.email == email)
+    result = await asession.execute(stmt)
+    return result.scalars().all()
+
+async def delete_pending_invitation(
+    *, asession: AsyncSession, invitation: PendingInvitationDB
+) -> None:
+    """Delete a pending invitation."""
+    await asession.delete(invitation)
+    await asession.commit()
 
 
 async def check_if_user_has_default_workspace(

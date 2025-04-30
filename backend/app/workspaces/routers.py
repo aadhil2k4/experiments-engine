@@ -6,9 +6,12 @@ from redis.asyncio import Redis
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..users.exceptions import UserNotFoundError
+
 from ..auth.dependencies import (
     create_access_token,
     get_current_user,
+    get_verified_user,
 )
 from ..auth.schemas import AuthenticationDetails
 from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
@@ -16,17 +19,21 @@ from ..database import get_async_session, get_redis
 from ..email import EmailService
 from ..users.models import (
     UserDB,
-    UserNotFoundError,
     get_user_by_username,
 )
-from ..users.schemas import UserCreate
+from ..users.schemas import MessageResponse, UserCreate
 from ..utils import generate_key, setup_logger
 from .models import (
+    UserNotFoundInWorkspaceError,
     add_existing_user_to_workspace,
     check_if_user_has_default_workspace,
+    create_pending_invitation,
+    get_user_by_user_id,
     get_user_default_workspace,
     get_user_role_in_workspace,
     get_user_workspaces,
+    get_users_in_workspace,
+    remove_user_from_workspace,
     update_user_default_workspace,
 )
 from .schemas import (
@@ -38,6 +45,7 @@ from .schemas import (
     WorkspaceRetrieve,
     WorkspaceSwitch,
     WorkspaceUpdate,
+    WorkspaceUserResponse,
 )
 from .utils import (
     WorkspaceNotFoundError,
@@ -93,6 +101,8 @@ async def create_workspace_endpoint(
         user=UserCreate(
             role=UserRoles.ADMIN,
             username=calling_user_db.username,
+            first_name=calling_user_db.first_name,
+            last_name=calling_user_db.last_name,
             workspace_name=workspace.workspace_name,
         ),
         api_key=api_key,
@@ -106,6 +116,8 @@ async def create_workspace_endpoint(
                 is_default_workspace=False,  # Don't make it default automatically
                 role=UserRoles.ADMIN,
                 username=calling_user_db.username,
+                first_name=calling_user_db.first_name,
+                last_name=calling_user_db.last_name,
                 workspace_name=workspace_db.workspace_name,
             ),
             workspace_db=workspace_db,
@@ -428,6 +440,8 @@ async def invite_user_to_workspace(
                 user=UserCreate(
                     role=invite.role,
                     username=invite.email,
+                    first_name=invited_user.first_name,
+                    last_name=invited_user.last_name,
                     workspace_name=invite.workspace_name,
                 ),
                 workspace_db=workspace_db,
@@ -451,7 +465,16 @@ async def invite_user_to_workspace(
             )
 
         except UserNotFoundError:
-            # User doesn't exist, send invitation to create account
+            # User doesn't exist, create pending invitation
+            await create_pending_invitation(
+                asession=asession,
+                email=invite.email,
+                workspace_db=workspace_db,
+                role=invite.role,
+                inviter_id=calling_user_db.user_id,
+            )
+            
+            # Send invitation email
             background_tasks.add_task(
                 email_service.send_workspace_invitation_email,
                 invite.email,
@@ -479,3 +502,113 @@ async def invite_user_to_workspace(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error inviting user to workspace.",
         ) from e
+
+
+@router.get("/{workspace_id}/users", response_model=list[WorkspaceUserResponse])
+async def get_workspace_users(
+    workspace_id: int,
+    calling_user_db: Annotated[UserDB, Depends(get_verified_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> list[WorkspaceUserResponse]:
+    """Get all users in a workspace."""
+    try:
+        workspace_db = await get_workspace_by_workspace_id(
+            asession=asession, workspace_id=workspace_id
+        )
+        
+        user_role = await get_user_role_in_workspace(
+            asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+        )
+        
+        if user_role is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User does not have access to workspace with ID {workspace_id}.",
+            )
+        
+        user_workspaces = await get_users_in_workspace(
+            asession=asession, workspace_db=workspace_db
+        )
+        
+        result = []
+        for uw in user_workspaces:
+            user = await get_user_by_user_id(uw.user_id, asession)
+            result.append(
+                WorkspaceUserResponse(
+                    user_id=user.user_id,
+                    username=user.username,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    role=uw.user_role,
+                    is_default_workspace=uw.default_workspace,
+                    created_datetime_utc=uw.created_datetime_utc,
+                )
+            )
+        
+        return result
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace with ID {workspace_id} not found.",
+        ) from e
+
+@router.delete("/{workspace_id}/users/{username}", response_model=MessageResponse)
+async def remove_user_from_workspace_endpoint(
+    workspace_id: int,
+    username: str,
+    calling_user_db: Annotated[UserDB, Depends(get_verified_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> MessageResponse:
+    """Remove a user from a workspace."""
+    try:
+        workspace_db = await get_workspace_by_workspace_id(
+            asession=asession, workspace_id=workspace_id
+        )
+        
+        caller_role = await get_user_role_in_workspace(
+            asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+        )
+        
+        if caller_role != UserRoles.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only workspace administrators can remove users.",
+            )
+        
+        if workspace_db.is_default:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot remove users from default workspaces.",
+            )
+        
+        if username == calling_user_db.username:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot remove yourself from a workspace.",
+            )
+        
+        try:
+            user_to_remove = await get_user_by_username(username=username, asession=asession)
+        except UserNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with username '{username}' not found.",
+            )
+        
+        try:
+            await remove_user_from_workspace(
+                asession=asession, user_db=user_to_remove, workspace_db=workspace_db
+            )
+            return MessageResponse(
+                message=f"User '{username}' successfully removed from workspace '{workspace_db.workspace_name}'."
+            )
+        except UserNotFoundInWorkspaceError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User '{username}' is not a member of workspace '{workspace_db.workspace_name}'.",
+            )
+    except WorkspaceNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace with ID {workspace_id} not found.",
+        )

@@ -15,16 +15,9 @@ from ..models import Base
 from ..utils import get_key_hash, get_password_salted_hash, get_random_string
 from ..workspaces.models import UserWorkspaceDB, WorkspaceDB
 from .schemas import UserCreate, UserCreateWithPassword
+from ..users.exceptions import UserAlreadyExistsError, UserNotFoundError
 
 PASSWORD_LENGTH = 12
-
-
-class UserNotFoundError(Exception):
-    """Exception raised when a user is not found in the database."""
-
-
-class UserAlreadyExistsError(Exception):
-    """Exception raised when a user already exists in the database."""
 
 
 class UserDB(Base):

@@ -118,3 +118,17 @@ class WorkspaceInviteResponse(BaseModel):
     user_exists: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WorkspaceUserResponse(BaseModel):
+    """Pydantic model for workspace user information."""
+    
+    user_id: int
+    username: str
+    first_name: str
+    last_name: str
+    role: UserRoles
+    is_default_workspace: bool
+    created_datetime_utc: datetime
+    
+    model_config = ConfigDict(from_attributes=True)

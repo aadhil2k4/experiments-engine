@@ -11,9 +11,9 @@ from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, Outcome, RewardLikelihood
 from ..users.models import UserDB
+from ..utils import setup_logger
 from ..workspaces.models import get_user_default_workspace, get_user_role_in_workspace
 from ..workspaces.schemas import UserRoles
-from ..utils import setup_logger
 from .models import (
     MABArmDB,
     MABDrawDB,

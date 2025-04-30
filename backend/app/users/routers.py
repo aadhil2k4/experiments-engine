@@ -12,11 +12,11 @@ from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
 from ..database import get_async_session, get_redis
 from ..email import EmailService
 from ..users.models import (
-    UserAlreadyExistsError,
     UserDB,
     save_user_to_db,
     update_user_api_key,
 )
+from ..users.exceptions import UserAlreadyExistsError
 from ..utils import generate_key, setup_logger, update_api_limits
 from .schemas import KeyResponse, UserCreate, UserCreateWithPassword, UserRetrieve
 
@@ -45,8 +45,16 @@ async def create_user(
     """
     try:
         # Import workspace functionality to avoid circular imports
-        from ..workspaces.models import UserRoles, create_user_workspace_role
-        from ..workspaces.utils import create_workspace
+        from ..workspaces.models import (
+            UserRoles, 
+            create_user_workspace_role, 
+            get_pending_invitations_by_email,
+            delete_pending_invitation
+        )
+        from ..workspaces.utils import (
+            create_workspace,
+            get_workspace_by_workspace_id
+        )
 
         # Create the user
         new_api_key = generate_key()
@@ -69,6 +77,8 @@ async def create_user(
             user=UserCreate(
                 role=UserRoles.ADMIN,
                 username=user_new.username,
+                first_name=user_new.first_name,
+                last_name=user_new.last_name,
                 workspace_name=default_workspace_name,
             ),
             is_default=True,
@@ -84,6 +94,29 @@ async def create_user(
             workspace_db=workspace_db,
         )
 
+        # Check for pending invitations
+        pending_invitations = await get_pending_invitations_by_email(
+            asession=asession, email=user_new.username
+        )
+        
+        # Process pending invitations
+        for invitation in pending_invitations:
+            invite_workspace = await get_workspace_by_workspace_id(
+                asession=asession, workspace_id=invitation.workspace_id
+            )
+            
+            # Add user to the invited workspace
+            await create_user_workspace_role(
+                asession=asession,
+                is_default_workspace=False,
+                user_db=user_new,
+                user_role=invitation.role,
+                workspace_db=invite_workspace,
+            )
+            
+            # Delete the invitation
+            await delete_pending_invitation(asession=asession, invitation=invitation)
+            
         # Send verification email
         token = await generate_verification_token(
             user_new.user_id, user_new.username, redis
