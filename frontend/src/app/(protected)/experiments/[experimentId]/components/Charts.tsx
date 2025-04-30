@@ -32,9 +32,11 @@ const betaPDF = (x: number, a: number, b: number): number => {
 const BetaLineChart = ({
   priors,
   posteriors,
+  showPriors
 }: {
   priors: BetaParams[];
   posteriors: BetaParams[];
+  showPriors?: boolean;
 }) => {
   const num_arms = posteriors.length;
   const COLORS = Array.from({ length: num_arms }, (_, i) =>
@@ -109,7 +111,7 @@ const BetaLineChart = ({
               fillOpacity={0.3}
             />
           ))}
-          {priors.map((dist, i) => (
+          {showPriors ? priors.map((dist: BetaParams, i: number) => (
             <Area
               key={`Prior - ${i}_${dist.name}`}
               dataKey={`Prior - ${i}_${dist.name}`}
@@ -118,7 +120,7 @@ const BetaLineChart = ({
               fill={undefined}
               fillOpacity={0.1}
             />
-          ))}
+          )) : null}
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -140,9 +142,11 @@ const normalPDF = (x: number, m: number, s: number): number => {
 const NormalLineChart = ({
   priors,
   posteriors,
+  showPriors
 }: {
   priors: GaussianParams[];
   posteriors: GaussianParams[];
+  showPriors?: boolean;
 }) => {
   const num_arms = posteriors.length;
   const COLORS = Array.from({ length: num_arms }, (_, i) =>
@@ -221,7 +225,7 @@ const NormalLineChart = ({
               fillOpacity={0.3}
             />
           ))}
-          {priors.map((dist, i) => (
+          {showPriors ? priors.map((dist: GaussianParams, i: number) => (
             <Area
               key={`Prior - ${i}_${dist.name}`}
               dataKey={`Prior - ${i}_${dist.name}`}
@@ -230,7 +234,7 @@ const NormalLineChart = ({
               fill={undefined}
               fillOpacity={0.1}
             />
-          ))}
+          )) : null}
         </AreaChart>
       </ResponsiveContainer>
     </div>

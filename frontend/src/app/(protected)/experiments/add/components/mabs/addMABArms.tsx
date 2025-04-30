@@ -2,25 +2,19 @@ import {
   useExperimentStore,
   isMABExperimentStateNormal,
 } from "../../../store/useExperimentStore";
-import {
-  Field,
-  FieldGroup,
-  Fieldset,
-  Label,
-} from "@/components/catalyst/fieldset";
-import { Button } from "@/components/catalyst/button";
-import { Input } from "@/components/catalyst/input";
-import { Textarea } from "@/components/catalyst/textarea";
-import {
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import type {
   NewMABArmNormal,
+  NewMABArmBeta,
   StepComponentProps,
-  MABArmBeta,
-  MABArmNormal,
+  // MABArmBeta,
+  // MABArmNormal,
 } from "../../../types";
-import { PlusIcon } from "@heroicons/react/16/solid";
+import { Plus, Trash } from "lucide-react";
 import { DividerWithTitle } from "@/components/Dividers";
-import { TrashIcon } from "@heroicons/react/16/solid";
-import { Heading } from "@/components/catalyst/heading";
 import { useCallback, useEffect, useState, useMemo } from "react";
 
 export default function AddMABArms({ onValidate }: StepComponentProps) {
@@ -39,9 +33,9 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
 
   const additionalArmErrors = useMemo(
     () =>
-      experimentState.priorType === "beta"
-        ? { alpha: "", beta: "" }
-        : { mu: "", sigma: "" },
+      experimentState.prior_type === "beta"
+        ? { alpha_init: "", beta_init: "" }
+        : { mu_init: "", sigma_init: "" },
     [experimentState]
   );
 
@@ -69,43 +63,45 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
         isValid = false;
       }
 
-      if (experimentState.priorType === "beta") {
-        if ("alpha" in arm) {
-          if (!arm.alpha) {
-            newErrors[index].alpha = "Alpha prior is required";
+      if (experimentState.prior_type === "beta") {
+        if ("alpha_init" in arm) {
+          if (!arm.alpha_init) {
+            newErrors[index].alpha_init = "Alpha prior is required";
             isValid = false;
           }
-          if (arm.alpha <= 0) {
-            newErrors[index].alpha = "Alpha prior should be greater than 0";
+          if (arm.alpha_init <= 0) {
+            newErrors[index].alpha_init =
+              "Alpha prior should be greater than 0";
             isValid = false;
           }
         }
 
-        if ("beta" in arm) {
-          if (!arm.beta) {
-            newErrors[index].beta = "Beta prior is required";
+        if ("beta_init" in arm) {
+          if (!arm.beta_init) {
+            newErrors[index].beta_init = "Beta prior is required";
             isValid = false;
           }
 
-          if (arm.beta <= 0) {
-            newErrors[index].beta = "Beta prior should be greater than 0";
+          if (arm.beta_init <= 0) {
+            newErrors[index].beta_init = "Beta prior should be greater than 0";
             isValid = false;
           }
         }
-      } else if (experimentState.priorType === "normal") {
-        if ("mu" in arm && typeof arm.mu !== "number") {
-          newErrors[index].mu = "Mean value is required";
+      } else if (experimentState.prior_type === "normal") {
+        if ("mu_init" in arm && typeof arm.mu_init !== "number") {
+          newErrors[index].mu_init = "Mean value is required";
           isValid = false;
         }
 
-        if ("sigma" in arm) {
-          if (!arm.sigma) {
-            newErrors[index].sigma = "Std. deviation is required";
+        if ("sigma_init" in arm) {
+          if (!arm.sigma_init) {
+            newErrors[index].sigma_init = "Std. deviation is required";
             isValid = false;
           }
 
-          if (arm.sigma <= 0) {
-            newErrors[index].sigma = "Std deviation should be greater than 0";
+          if (arm.sigma_init <= 0) {
+            newErrors[index].sigma_init =
+              "Std deviation should be greater than 0";
             isValid = false;
           }
         }
@@ -135,7 +131,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
     if (isMABExperimentStateNormal(experimentState)) {
       experimentState.arms.forEach((arm, index) => {
         newInputValues[`${index}-mu`] = (
-          (arm as MABArmNormal).mu || 0
+          (arm as NewMABArmNormal).mu_init || 0
         ).toString();
       });
     }
@@ -152,7 +148,7 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
     if (value !== "" && value !== "-") {
       const numValue = Number.parseFloat(value);
       if (!isNaN(numValue)) {
-        updateArm(index, { mu: numValue });
+        updateArm(index, { mu_init: numValue });
       }
     }
   };
@@ -160,39 +156,42 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
   return (
     <div>
       <div className="flex w-full flex-wrap items-end justify-between gap-4 border-b border-zinc-950/10 pb-6 dark:border-white/10">
-        <Heading>Add MAB Arms</Heading>
+        <h2 className="text-2xl font-semibold tracking-tight">Add MAB Arms</h2>
         <div className="flex gap-4">
           <Button className="mt-4" onClick={addArm}>
-            <PlusIcon className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-2" />
             Add Arm
           </Button>
           <Button
             className="mt-4 mx-4"
             disabled={experimentState.arms.length <= 2}
-            outline
+            variant="outline"
             onClick={() => {
               removeArm(experimentState.arms.length - 1);
             }}
           >
-            <TrashIcon className="w-4 h-4 mr-2" />
+            <Trash className="w-4 h-4 mr-2" />
             Delete Arm
           </Button>
         </div>
       </div>
-      <Fieldset aria-label="Add MAB Arms">
+      <div className="space-y-6" aria-label="Add MAB Arms">
         {experimentState.arms.map((arm, index) => (
           <div key={index}>
             <DividerWithTitle title={`Arm ${index + 1}`} />
-            <FieldGroup
-              key={index}
-              className="md:flex md:flex-row md:space-x-8 md:space-y-0 items-start"
-            >
+            <div className="md:flex md:flex-row md:space-x-8 md:space-y-0 items-start">
               <div className="basis-1/2">
-                <Field className="flex flex-col mb-4">
-                  <div className="flex flex-row">
-                    <Label className="basis-1/4 mt-3 font-medium">Name</Label>
+                <div className="flex flex-col mb-4">
+                  <div className="flex flex-row items-start">
+                    <Label
+                      className="basis-1/4 mt-2 font-medium"
+                      htmlFor={`arm-${index + 1}-name`}
+                    >
+                      Name
+                    </Label>
                     <div className="basis-3/4 flex flex-col">
                       <Input
+                        id={`arm-${index + 1}-name`}
                         name={`arm-${index + 1}-name`}
                         placeholder="Give the arm a searchable name"
                         value={arm.name || ""}
@@ -201,22 +200,26 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                         }
                       />
                       {errors[index]?.name ? (
-                        <p className="text-red-500 text-xs mt-1">
+                        <p className="text-destructive text-xs mt-1">
                           {errors[index].name}
                         </p>
                       ) : (
-                        <p className="text-red-500 text-xs mt-1">&nbsp;</p>
+                        <p className="text-destructive text-xs mt-1">&nbsp;</p>
                       )}
                     </div>
                   </div>
-                </Field>
-                <Field className="flex flex-col">
-                  <div className="flex flex-row">
-                    <Label className="basis-1/4 mt-3 font-medium">
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex flex-row items-start">
+                    <Label
+                      className="basis-1/4 mt-2 font-medium"
+                      htmlFor={`arm-${index + 1}-description`}
+                    >
                       Description
                     </Label>
                     <div className="basis-3/4 flex flex-col">
                       <Textarea
+                        id={`arm-${index + 1}-description`}
                         name={`arm-${index + 1}-description`}
                         placeholder="Describe the arm"
                         value={arm.description || ""}
@@ -225,23 +228,23 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                         }
                       />
                       {errors[index]?.description ? (
-                        <p className="text-red-500 text-xs mt-1">
+                        <p className="text-destructive text-xs mt-1">
                           {errors[index].description}
                         </p>
                       ) : (
-                        <p className="text-red-500 text-xs mt-1">&nbsp;</p>
+                        <p className="text-destructive text-xs mt-1">&nbsp;</p>
                       )}
                     </div>
                   </div>
-                </Field>
+                </div>
               </div>
-              {experimentState.priorType === "beta" && (
+              {experimentState.prior_type === "beta" && (
                 <div className="basis-1/2 grow">
-                  <Field className="flex flex-col mb-4">
-                    <div className="flex flex-row">
+                  <div className="flex flex-col mb-4">
+                    <div className="flex flex-row items-start">
                       <Label
-                        className="basis-1/4 mt-3 font-medium"
-                        htmlFor="alpha"
+                        className="basis-1/4 mt-2 font-medium"
+                        htmlFor={`arm-${index + 1}-alpha`}
                       >
                         Alpha prior
                       </Label>
@@ -250,28 +253,30 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           id={`arm-${index + 1}-alpha`}
                           name={`arm-${index + 1}-alpha`}
                           placeholder="Enter an integer as the prior for the alpha parameter"
-                          value={(arm as MABArmBeta).alpha || ""}
+                          value={(arm as NewMABArmBeta).alpha_init || ""}
                           onChange={(e) => {
                             updateArm(index, {
-                              alpha: parseInt(e.target.value),
+                              alpha_init: parseInt(e.target.value),
                             });
                           }}
                         />
-                        {errors[index]?.alpha ? (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors[index].alpha}
+                        {errors[index]?.alpha_init ? (
+                          <p className="text-destructive text-xs mt-1">
+                            {errors[index].alpha_init}
                           </p>
                         ) : (
-                          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
+                          <p className="text-destructive text-xs mt-1">
+                            &nbsp;
+                          </p>
                         )}
                       </div>
                     </div>
-                  </Field>
-                  <Field className="flex flex-col">
-                    <div className="flex flex-row">
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex flex-row items-start">
                       <Label
-                        className="basis-1/4 mt-3 font-medium"
-                        htmlFor="beta"
+                        className="basis-1/4 mt-2 font-medium"
+                        htmlFor={`arm-${index + 1}-beta`}
                       >
                         Beta prior
                       </Label>
@@ -280,32 +285,34 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           id={`arm-${index + 1}-beta`}
                           name={`arm-${index + 1}-beta`}
                           placeholder="Enter an integer as the prior for the beta parameter"
-                          value={(arm as MABArmBeta).beta || ""}
+                          value={(arm as NewMABArmBeta).beta_init || ""}
                           onChange={(e) => {
                             updateArm(index, {
-                              beta: parseInt(e.target.value),
+                              beta_init: parseInt(e.target.value),
                             });
                           }}
                         />
-                        {errors[index]?.beta ? (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors[index].beta}
+                        {errors[index]?.beta_init ? (
+                          <p className="text-destructive text-xs mt-1">
+                            {errors[index].beta_init}
                           </p>
                         ) : (
-                          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
+                          <p className="text-destructive text-xs mt-1">
+                            &nbsp;
+                          </p>
                         )}
                       </div>
                     </div>
-                  </Field>
+                  </div>
                 </div>
               )}
-              {experimentState.priorType === "normal" && (
+              {experimentState.prior_type === "normal" && (
                 <div className="basis-1/2 grow">
-                  <Field className="flex flex-col mb-4">
-                    <div className="flex flex-row">
+                  <div className="flex flex-col mb-4">
+                    <div className="flex flex-row items-start">
                       <Label
-                        className="basis-1/4 mt-3 font-medium"
-                        htmlFor="mu"
+                        className="basis-1/4 mt-2 font-medium"
+                        htmlFor={`arm-${index + 1}-mu`}
                       >
                         Mean prior
                       </Label>
@@ -318,27 +325,29 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           defaultValue={0}
                           value={
                             inputValues[`${index}-mu`] ??
-                            (arm as MABArmNormal).mu?.toString()
+                            (arm as NewMABArmNormal).mu_init?.toString()
                           }
                           onChange={(e) => {
                             handleNumericChange(index, e.target.value);
                           }}
                         />
-                        {errors[index]?.mu ? (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors[index].mu}
+                        {errors[index]?.mu_init ? (
+                          <p className="text-destructive text-xs mt-1">
+                            {errors[index].mu_init}
                           </p>
                         ) : (
-                          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
+                          <p className="text-destructive text-xs mt-1">
+                            &nbsp;
+                          </p>
                         )}
                       </div>
                     </div>
-                  </Field>
-                  <Field className="flex flex-col">
-                    <div className="flex flex-row">
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex flex-row items-start">
                       <Label
-                        className="basis-1/4 mt-3 font-medium"
-                        htmlFor="sigma"
+                        className="basis-1/4 mt-2 font-medium"
+                        htmlFor={`arm-${index + 1}-sigma`}
                       >
                         Standard deviation
                       </Label>
@@ -349,27 +358,31 @@ export default function AddMABArms({ onValidate }: StepComponentProps) {
                           type="number"
                           defaultValue={1}
                           placeholder="Enter a float as standard deviation for the prior"
-                          value={(arm as NewMABArmNormal).sigma || ""}
+                          value={(arm as NewMABArmNormal).sigma_init || ""}
                           onChange={(e) => {
-                            updateArm(index, { sigma: Number(e.target.value) });
+                            updateArm(index, {
+                              sigma_init: Number(e.target.value),
+                            });
                           }}
                         />
-                        {errors[index]?.sigma ? (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors[index].sigma}
+                        {errors[index]?.sigma_init ? (
+                          <p className="text-destructive text-xs mt-1">
+                            {errors[index].sigma_init}
                           </p>
                         ) : (
-                          <p className="text-red-500 text-xs mt-1">&nbsp;</p>
+                          <p className="text-destructive text-xs mt-1">
+                            &nbsp;
+                          </p>
                         )}
                       </div>
                     </div>
-                  </Field>
+                  </div>
                 </div>
               )}
-            </FieldGroup>
+            </div>
           </div>
         ))}
-      </Fieldset>
+      </div>
     </div>
   );
 }

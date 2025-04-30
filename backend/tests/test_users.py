@@ -1,8 +1,8 @@
 import os
-from typing import Annotated, Generator
+from typing import Annotated, Generator, cast
 from unittest.mock import MagicMock, patch
 
-from fastapi import Depends
+from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from pytest import fixture
 
@@ -48,15 +48,22 @@ class TestCreateUser:
         ) -> UserDB:
             return user_db
 
-        client.app.dependency_overrides[get_verified_user] = mock_get_verified_user
+        app = cast(FastAPI, client.app)
+        app.dependency_overrides[get_verified_user] = mock_get_verified_user
         yield
-        client.app.dependency_overrides.clear()
+        app.dependency_overrides.clear()
 
     def test_user_id_1_can_create_user(
         self, client: TestClient, mock_send_email: MagicMock
     ) -> None:
         response = client.post(
-            "/user/", json={"username": "user_test", "password": "password_test"}
+            "/user/",
+            json={
+                "username": "user_test",
+                "password": "password_test",
+                "first_name": "Test",
+                "last_name": "User",
+            },
         )
 
         assert response.status_code == 200
@@ -67,14 +74,24 @@ class TestCreateUser:
         # Register a user
         response = client.post(
             "/user/",
-            json={"username": "user_test1", "password": "password_test"},
+            json={
+                "username": "user_test1",
+                "password": "password_test",
+                "first_name": "Test",
+                "last_name": "User",
+            },
         )
         assert response.status_code == 200
 
         # Try to register another user
         response = client.post(
             "/user/",
-            json={"username": "user_test1", "password": "password_test"},
+            json={
+                "username": "user_test1",
+                "password": "password_test",
+                "first_name": "Test",
+                "last_name": "User",
+            },
         )
         assert response.status_code == 400
 

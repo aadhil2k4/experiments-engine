@@ -16,14 +16,14 @@ base_mab_payload = {
         {
             "name": "arm 1",
             "description": "arm 1 description",
-            "alpha": 5,
-            "beta": 1,
+            "alpha_init": 5,
+            "beta_init": 1,
         },
         {
             "name": "arm 2",
             "description": "arm 2 description",
-            "alpha": 1,
-            "beta": 4,
+            "alpha_init": 1,
+            "beta_init": 4,
         },
     ],
     "notifications": {

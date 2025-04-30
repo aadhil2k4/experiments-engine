@@ -95,7 +95,11 @@ async def login_google(
         )
         if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
             raise ValueError("Wrong issuer.")
+
     except ValueError as e:
+        logger.error(
+            f"Invalid token: {e}, client_id: {NEXT_PUBLIC_GOOGLE_LOGIN_CLIENT_ID}"
+        )
         raise HTTPException(status_code=401, detail="Invalid token") from e
 
     # Import here to avoid circular imports
@@ -108,7 +112,11 @@ async def login_google(
 
     user_email = idinfo["email"]
     user = await authenticate_or_create_google_user(
-        request=request, google_email=user_email, asession=asession
+        request=request,
+        google_email=idinfo["email"],
+        asession=asession,
+        first_name=idinfo["given_name"],
+        last_name=idinfo["family_name"],
     )
     if not user:
         raise HTTPException(
