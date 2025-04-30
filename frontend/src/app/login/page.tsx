@@ -29,6 +29,9 @@ import { Flex } from "@radix-ui/themes";
 import GoogleLogin, {
   NEXT_PUBLIC_GOOGLE_LOGIN_CLIENT_ID,
 } from "@/components/auth/GoogleLogin";
+import Image from "next/image";
+import logoDark from "@/public/logo_dark.svg";
+import logoLight from "@/public/logo_light.svg";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -78,6 +81,14 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">
+              <div className="mb-5">
+                <Image src={logoLight} alt="Logo" className="dark:hidden" />
+                <Image
+                  src={logoDark}
+                  alt="Logo"
+                  className="hidden dark:block"
+                />
+              </div>
               Welcome back
             </CardTitle>
             <CardDescription className="text-center">
