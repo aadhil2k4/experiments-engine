@@ -47,6 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Workspace, WorkspaceUser } from "../types";
 
 export default function WorkspaceDetailPage() {
   const params = useParams();

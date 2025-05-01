@@ -170,7 +170,7 @@ class EmailService:
                 <p>Hello,</p>
                 <p>You have been invited by {inviter_email} to join the workspace "{workspace_name}".</p>
                 <p>You need to create an account to join this workspace.</p>
-                <p><a href="{FRONTEND_URL}/signup">Create Your Account</a></p>
+                <p><a href="{FRONTEND_URL}/register">Create Your Account</a></p>
             </body>
             </html>
             """
