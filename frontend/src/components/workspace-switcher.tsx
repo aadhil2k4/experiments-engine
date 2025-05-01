@@ -31,7 +31,7 @@ export function WorkspaceSwitcher() {
 
   const handleWorkspaceSwitch = async (workspaceName: string) => {
     if (workspaceName === currentWorkspace.workspace_name) return;
-    
+
     try {
       setIsLoading(true);
       await switchWorkspace(workspaceName);
@@ -87,17 +87,6 @@ export function WorkspaceSwitcher() {
                 <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <a href="/workspaces/create" className="flex items-center gap-2 w-full">
-                <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                  <span className="text-lg">+</span>
-                </div>
-                <div className="font-medium text-muted-foreground">
-                  Add workspace
-                </div>
-              </a>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
