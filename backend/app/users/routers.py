@@ -153,34 +153,3 @@ async def get_user(
 
     return UserRetrieve.model_validate(user_db)
 
-
-@router.put("/rotate-key", response_model=KeyResponse)
-async def get_new_api_key(
-    user_db: Annotated[UserDB, Depends(get_verified_user)],
-    asession: AsyncSession = Depends(get_async_session),
-) -> KeyResponse | None:
-    """
-    Generate a new API key for the requester's account. Takes a user object,
-    generates a new key, replaces the old one in the database, and returns
-    a user object with the new key.
-    """
-
-    new_api_key = generate_key()
-
-    try:
-        # this is neccesarry to attach the user_db to the session
-        asession.add(user_db)
-        await update_user_api_key(
-            user_db=user_db,
-            new_api_key=new_api_key,
-            asession=asession,
-        )
-        return KeyResponse(
-            username=user_db.username,
-            new_api_key=new_api_key,
-        )
-    except SQLAlchemyError as e:
-        logger.error(f"Error updating user api key: {e}")
-        raise HTTPException(
-            status_code=500, detail="Error updating user api key"
-        ) from e

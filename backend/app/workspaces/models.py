@@ -167,6 +167,7 @@ async def get_user_by_user_id(
     user_id: int, asession: AsyncSession
 ) -> "UserDB":
     """Get a user by user ID."""
+    from ..users.models import UserDB
     stmt = select(UserDB).where(UserDB.user_id == user_id)
     result = await asession.execute(stmt)
     try:
