@@ -1,7 +1,7 @@
 """add client id to draws db
 
 Revision ID: 275ff74c0866
-Revises: 28adf347e68d
+Revises: 5c15463fda65
 Create Date: 2025-04-28 20:01:35.705717
 
 """
@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "275ff74c0866"
-down_revision: Union[str, None] = "28adf347e68d"
+down_revision: Union[str, None] = "5c15463fda65"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

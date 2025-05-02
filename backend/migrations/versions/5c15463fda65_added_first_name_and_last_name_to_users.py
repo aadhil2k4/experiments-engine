@@ -1,7 +1,7 @@
 """added first name and last name to users
 
 Revision ID: 5c15463fda65
-Revises: feb042798cad
+Revises: 28adf347e68d
 Create Date: 2025-04-26 15:47:23.199751
 
 """
