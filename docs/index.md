@@ -54,7 +54,7 @@ sequenceDiagram
     ExE->>Your app: Assign user to arm
     Your app->>User: Show arm content
     User->>Your app: Interact with platform
-    Your app->>ExE: Send outcome data interaction data
+    Your app->>ExE: Send outcome data
     ExE->>ExE: Update weights and results
     actor Admin
     Admin->>ExE: Monitor experiment
