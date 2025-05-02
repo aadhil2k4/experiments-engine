@@ -250,9 +250,8 @@ async def delete_mab_by_id(
     )
 
     await asession.execute(
-        delete(MABDrawDB).where(
+        delete(DrawsBaseDB).where(
             and_(
-                MABDrawDB.draw_id == DrawsBaseDB.draw_id,
                 DrawsBaseDB.user_id == user_id,
                 DrawsBaseDB.experiment_id == experiment_id,
             )
@@ -382,7 +381,7 @@ async def save_observation_to_db(
     draw: MABDrawDB,
     reward: float,
     asession: AsyncSession,
-    observation_type: ObservationType = ObservationType.AUTO,
+    observation_type: ObservationType,
 ) -> MABDrawDB:
     """
     Save an observation to the database
