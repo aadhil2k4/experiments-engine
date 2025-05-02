@@ -21,6 +21,47 @@ Experiments Engine (ExE) enables social sector orgs with digital offerings to cr
     </video>
 </figure>
 
+## How does it work?
+
+### Creating an experiment
+
+You can create a new experiment in ExE and generate an API key. There are two places where you need to integrate ExE:
+(a) when a user visits your platform and you need to decide which arm to assign to them
+(b) when the desired outcome is observed (e.g. user clicks a button, user completes a task, etc.)
+
+
+``` mermaid
+sequenceDiagram
+    autonumber
+    actor Admin
+    Admin->>ExE: Create experiment
+    Admin->>ExE: Generate API key
+    ExE-->>Admin: API key
+    Admin->>Your app: Integrate endpoint with platform
+```
+
+### Running the experiment
+
+With integration complete, you are ready to run the experiment. When a user visits your platform, your app will call the ExE API to get the arm assigned to them. You can then show them the content for that arm.
+
+When the outcome is observed your platform, the platform will send the outcome data back to ExE. ExE will then update the weights and results of the experiment.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    Your app->>ExE: User visits platform
+    ExE->>Your app: Assign user to arm
+    Your app->>User: Show arm content
+    User->>Your app: Interact with platform
+    Your app->>ExE: Send outcome data
+    ExE->>ExE: Update weights and results
+    actor Admin
+    Admin->>ExE: Monitor experiment
+```
+
+See [Setup your first experiment](./first-experiment/index.md) for a step-by-step guide.
+
 ### Features
 
 <div class="grid cards" markdown >
