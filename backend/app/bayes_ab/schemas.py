@@ -141,4 +141,5 @@ class BayesianABDrawResponse(BaseModel):
     """
 
     draw_id: str
+    client_id: str | None
     arm: BayesABArmResponse
