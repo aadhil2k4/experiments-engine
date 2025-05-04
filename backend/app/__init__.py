@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    await app.state.redis.close()
+    await app.state.redis.aclose()
     logger.info("Application finished")
 
 

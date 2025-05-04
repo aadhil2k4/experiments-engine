@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import authenticate_key, get_verified_user
+from ..auth.dependencies import authenticate_workspace_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, ObservationType
@@ -190,16 +190,17 @@ async def draw_arm(
     experiment_id: int,
     draw_id: Optional[str] = None,
     client_id: Optional[str] = None,
-    user_db: UserDB = Depends(authenticate_key),
+    user_db: UserDB = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> MABDrawResponse:
     """
     Draw an arm for the provided experiment.
     """
-    workspace_db = await get_user_default_workspace(asession=asession, user_db=user_db)
+    # Get workspace from user context
+    workspace_id = user_db.current_workspace.workspace_id
 
     experiment = await get_mab_by_id(
-        experiment_id, user_db.user_id, workspace_db.workspace_id, asession
+        experiment_id, user_db.user_id, workspace_id, asession
     )
     if experiment is None:
         raise HTTPException(
@@ -269,16 +270,18 @@ async def update_arm(
     experiment_id: int,
     draw_id: str,
     outcome: float,
-    user_db: UserDB = Depends(authenticate_key),
+    user_db: UserDB = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> ArmResponse:
     """
     Update the arm with the provided `arm_id` for the given
     `experiment_id` based on the `outcome`.
     """
-    workspace_db = await get_user_default_workspace(asession=asession, user_db=user_db)
+    # Get workspace from user context
+    workspace_id = user_db.current_workspace.workspace_id
+
     experiment, draw = await validate_experiment_and_draw(
-        experiment_id, draw_id, user_db.user_id, asession
+        experiment_id, draw_id, user_db.user_id, workspace_id, asession
     )
 
     return await update_based_on_outcome(
@@ -292,16 +295,17 @@ async def update_arm(
 )
 async def get_outcomes(
     experiment_id: int,
-    user_db: UserDB = Depends(authenticate_key),
+    user_db: UserDB = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[MABObservationResponse]:
     """
     Get the outcomes for the experiment.
     """
-    workspace_db = await get_user_default_workspace(asession=asession, user_db=user_db)
+    # Get workspace from user context
+    workspace_id = user_db.current_workspace.workspace_id
 
     experiment = await get_mab_by_id(
-        experiment_id, user_db.user_id, workspace_db.workspace_id, asession
+        experiment_id, user_db.user_id, workspace_id, asession
     )
     if not experiment:
         raise HTTPException(
@@ -318,10 +322,14 @@ async def get_outcomes(
 
 
 async def validate_experiment_and_draw(
-    experiment_id: int, draw_id: str, user_id: int, asession: AsyncSession
+    experiment_id: int,
+    draw_id: str,
+    user_id: int,
+    workspace_id: int,
+    asession: AsyncSession,
 ) -> tuple[MultiArmedBanditDB, MABDrawDB]:
     """Validate the experiment and draw"""
-    experiment = await get_mab_by_id(experiment_id, user_id, asession)
+    experiment = await get_mab_by_id(experiment_id, user_id, workspace_id, asession)
     if experiment is None:
         raise HTTPException(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"

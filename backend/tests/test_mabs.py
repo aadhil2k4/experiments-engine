@@ -73,6 +73,27 @@ def admin_token(client: TestClient) -> str:
 
 
 @fixture
+def workspace_api_key(client: TestClient, admin_token: str, db_session: Session) -> str:
+    """Get the current workspace API key for testing"""
+    # Get the current workspace
+    response = client.get(
+        "/workspace/current",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+
+    # Rotate the workspace API key to get a fresh one
+    response = client.put(
+        "/workspace/rotate-key",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+    workspace_api_key = response.json()["new_api_key"]
+
+    return workspace_api_key
+
+
+@fixture
 def clean_mabs(db_session: Session) -> Generator:
     yield
     db_session.query(NotificationsDB).delete()
@@ -233,27 +254,33 @@ class TestMab:
 
     @mark.parametrize("create_mab_payload", ["base_beta_binom"], indirect=True)
     def test_draw_arm_draw_id_provided(
-        self, client: TestClient, create_mabs: list, create_mab_payload: dict
+        self,
+        client: TestClient,
+        create_mabs: list,
+        create_mab_payload: dict,
+        workspace_api_key: str,
     ) -> None:
         id = create_mabs[0]["experiment_id"]
-        api_key = os.environ.get("ADMIN_API_KEY", "")
         response = client.get(
             f"/mab/{id}/draw",
             params={"draw_id": "test_draw"},
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
         assert response.status_code == 200
         assert response.json()["draw_id"] == "test_draw"
 
     @mark.parametrize("create_mab_payload", ["base_beta_binom"], indirect=True)
     def test_draw_arm_no_draw_id_provided(
-        self, client: TestClient, create_mabs: list, create_mab_payload: dict
+        self,
+        client: TestClient,
+        create_mabs: list,
+        create_mab_payload: dict,
+        workspace_api_key: str,
     ) -> None:
         id = create_mabs[0]["experiment_id"]
-        api_key = os.environ.get("ADMIN_API_KEY", "")
         response = client.get(
             f"/mab/{id}/draw",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
         assert response.status_code == 200
         assert len(response.json()["draw_id"]) == 36
@@ -274,13 +301,13 @@ class TestMab:
         create_mabs: list,
         client_id: str | None,
         expected_response: int,
+        workspace_api_key: str,
     ) -> None:
         mabs = create_mabs
         id = mabs[0]["experiment_id"]
-        api_key = os.environ.get("ADMIN_API_KEY", "")
         response = client.get(
             f"/mab/{id}/draw{'?client_id=' + client_id if client_id else ''}",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
         assert response.status_code == expected_response
 
@@ -291,13 +318,13 @@ class TestMab:
         admin_token: str,
         create_mab_payload: dict,
         create_mabs: list,
+        workspace_api_key: str,
     ) -> None:
         mabs = create_mabs
         id = mabs[0]["experiment_id"]
-        api_key = os.environ.get("ADMIN_API_KEY", "")
         response = client.get(
             f"/mab/{id}/draw?client_id=123",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
         assert response.status_code == 200
 
@@ -308,43 +335,46 @@ class TestMab:
         admin_token: str,
         create_mab_payload: dict,
         create_mabs: list,
+        workspace_api_key: str,
     ) -> None:
         mabs = create_mabs
         id = mabs[0]["experiment_id"]
-        api_key = os.environ.get("ADMIN_API_KEY", "")
 
         arm_ids = []
         for _ in range(10):
             response = client.get(
                 f"/mab/{id}/draw?client_id=123",
-                headers={"Authorization": f"Bearer {api_key}"},
+                headers={"Authorization": f"Bearer {workspace_api_key}"},
             )
             arm_ids.append(response.json()["arm"]["arm_id"])
         assert np.unique(arm_ids).size == 1
 
     @mark.parametrize("create_mab_payload", ["base_beta_binom"], indirect=True)
     def test_one_outcome_per_draw(
-        self, client: TestClient, create_mabs: list, create_mab_payload: dict
+        self,
+        client: TestClient,
+        create_mabs: list,
+        create_mab_payload: dict,
+        workspace_api_key: str,
     ) -> None:
         id = create_mabs[0]["experiment_id"]
-        api_key = os.environ.get("ADMIN_API_KEY", "")
         response = client.get(
             f"/mab/{id}/draw",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
         assert response.status_code == 200
         draw_id = response.json()["draw_id"]
 
         response = client.put(
             f"/mab/{id}/{draw_id}/1",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
 
         assert response.status_code == 200
 
         response = client.put(
             f"/mab/{id}/{draw_id}/1",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
 
         assert response.status_code == 400
@@ -360,27 +390,26 @@ class TestMab:
         create_mabs: list,
         n_draws: int,
         create_mab_payload: dict,
+        workspace_api_key: str,
     ) -> None:
-        id = create_mabs[0]["experiment_id"]
-        api_key = os.environ.get("ADMIN_API_KEY", "")
         id = create_mabs[0]["experiment_id"]
 
         for _ in range(n_draws):
             response = client.get(
                 f"/mab/{id}/draw",
-                headers={"Authorization": f"Bearer {api_key}"},
+                headers={"Authorization": f"Bearer {workspace_api_key}"},
             )
             assert response.status_code == 200
             draw_id = response.json()["draw_id"]
             # put outcomes
             response = client.put(
                 f"/mab/{id}/{draw_id}/1",
-                headers={"Authorization": f"Bearer {api_key}"},
+                headers={"Authorization": f"Bearer {workspace_api_key}"},
             )
 
         response = client.get(
             f"/mab/{id}/outcomes",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {workspace_api_key}"},
         )
 
         assert response.status_code == 200

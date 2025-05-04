@@ -10,10 +10,14 @@ from fastapi.security import (
     OAuth2PasswordBearer,
 )
 from jwt.exceptions import InvalidTokenError
+from redis.asyncio import Redis
+from sqlalchemy import case, select
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import CHECK_API_LIMIT, DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
 from ..database import get_async_session
+from ..users.exceptions import UserNotFoundError
 from ..users.models import (
     UserDB,
     get_user_by_api_key,
@@ -21,14 +25,17 @@ from ..users.models import (
     save_user_to_db,
     update_user_verification_status,
 )
-from ..users.exceptions import UserNotFoundError
 from ..users.schemas import UserCreate
 from ..utils import (
+    encode_api_limit,
     generate_key,
+    get_key_hash,
     setup_logger,
     update_api_limits,
     verify_password_salted_hash,
 )
+from ..workspaces.models import UserWorkspaceDB, WorkspaceDB
+from ..workspaces.schemas import UserRoles
 from .config import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     JWT_ALGORITHM,
@@ -64,6 +71,66 @@ async def authenticate_key(
         return user_db
     except UserNotFoundError as e:
         raise HTTPException(status_code=403, detail="Invalid API key") from e
+
+
+async def authenticate_workspace_key(
+    asession: AsyncSession = Depends(get_async_session),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+) -> UserDB:
+    """
+    Authenticate using workspace API key.
+    Returns the user associated with the workspace for the request context.
+    """
+    token = credentials.credentials
+    try:
+        # Check if the token matches any workspace API key
+        hashed_token = get_key_hash(token)
+        workspace_stmt = select(WorkspaceDB).where(
+            WorkspaceDB.hashed_api_key == hashed_token
+        )
+        workspace_result = await asession.execute(workspace_stmt)
+        workspace = workspace_result.scalar_one_or_none()
+
+        if not workspace:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid workspace API key",
+            )
+
+        # Find a user in this workspace to use as context
+        # Prioritize admin users for better permission context
+        user_stmt = (
+            select(UserDB)
+            .join(UserWorkspaceDB, UserWorkspaceDB.user_id == UserDB.user_id)
+            .where(UserWorkspaceDB.workspace_id == workspace.workspace_id)
+            .where(UserDB.is_active)  # Fixed boolean comparison
+            .order_by(case((UserWorkspaceDB.user_role == UserRoles.ADMIN, 0), else_=1))
+            .limit(1)
+        )
+
+        user_result = await asession.execute(user_stmt)
+        user = user_result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No active users associated with this workspace",
+            )
+
+        # Add the workspace context to the user object
+        user.current_workspace = workspace
+
+        return user
+    except NoResultFound as err:
+        # Fixed exception chaining
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid workspace API key"
+        ) from err
+    except Exception as e:
+        logger.error(f"Error authenticating workspace API key: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Authorization error"
+        ) from e
 
 
 async def authenticate_credentials(
@@ -189,7 +256,7 @@ async def get_verified_user(
     return user_db
 
 
-def create_access_token(username: str, workspace_name: str = None) -> str:
+def create_access_token(username: str, workspace_name: Optional[str] = None) -> str:
     """
     Create an access token for the user
     """
@@ -207,6 +274,61 @@ def create_access_token(username: str, workspace_name: str = None) -> str:
         payload["workspace_name"] = workspace_name
 
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+async def update_workspace_api_limits(
+    redis: Redis, workspace_id: int, api_daily_quota: int | None
+) -> None:
+    """
+    Update the API limits for workspace in Redis
+    """
+    now = datetime.now(timezone.utc)
+    next_midnight = (now + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    key = f"workspace-remaining-calls:{workspace_id}"
+    expire_at = int(next_midnight.timestamp())
+    await redis.set(key, encode_api_limit(api_daily_quota))
+    if api_daily_quota is not None:
+        await redis.expireat(key, expire_at)
+
+
+async def workspace_rate_limiter(
+    request: Request,
+    user_db: UserDB = Depends(authenticate_workspace_key),
+) -> None:
+    """
+    Rate limiter for the API calls using workspace quota instead of user quota.
+    """
+    if CHECK_API_LIMIT is False:
+        return
+
+    workspace = user_db.current_workspace
+    key = f"workspace-remaining-calls:{workspace.workspace_id}"
+    redis = request.app.state.redis
+    ttl = await redis.ttl(key)
+
+    # if key does not exist, set the key and value
+    if ttl == REDIS_KEY_EXPIRED:
+        await update_workspace_api_limits(
+            redis, workspace.workspace_id, workspace.api_daily_quota
+        )
+
+    nb_remaining = await redis.get(key)
+
+    if nb_remaining != b"None":
+        nb_remaining = int(nb_remaining)
+        if nb_remaining <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    "Workspace API call limit reached. Please try again tomorrow "
+                    "or upgrade your plan."
+                ),
+            )
+        await update_workspace_api_limits(
+            redis, workspace.workspace_id, nb_remaining - 1
+        )
 
 
 async def rate_limiter(

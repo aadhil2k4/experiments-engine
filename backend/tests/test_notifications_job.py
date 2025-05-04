@@ -53,6 +53,7 @@ def fake_datetime(days: int) -> Type:
 
 @fixture
 def admin_token(client: TestClient) -> str:
+    """Get an admin token for authentication"""
     response = client.post(
         "/login",
         data={
@@ -62,6 +63,27 @@ def admin_token(client: TestClient) -> str:
     )
     token = response.json()["access_token"]
     return token
+
+
+@fixture
+def workspace_api_key(client: TestClient, admin_token: str) -> str:
+    """Get the current workspace API key for testing"""
+    # Get the current workspace
+    response = client.get(
+        "/workspace/current",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+
+    # Rotate the workspace API key to get a fresh one
+    response = client.put(
+        "/workspace/rotate-key",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+    workspace_api_key = response.json()["new_api_key"]
+
+    return workspace_api_key
 
 
 class TestNotificationsJob:
@@ -174,24 +196,25 @@ class TestNotificationsJob:
         create_mabs_trials_run: list[dict],
         db_session: Session,
         asession: AsyncSession,
+        workspace_api_key: str,
     ) -> None:
         n_processed = await process_notifications(asession)
         assert n_processed == 0
-        api_key = os.environ.get("ADMIN_API_KEY", "")
+        headers = {"Authorization": f"Bearer {workspace_api_key}"}
         for mab in create_mabs_trials_run:
             for i in range(n_trials):
                 draw_id = f"draw_{i}_{mab['experiment_id']}"
                 response = client.get(
                     f"/mab/{mab['experiment_id']}/draw",
                     params={"draw_id": draw_id},
-                    headers={"Authorization": f"Bearer {api_key}"},
+                    headers=headers,
                 )
                 assert response.status_code == 200
                 assert response.json()["draw_id"] == draw_id
 
                 response = client.put(
                     f"/mab/{mab['experiment_id']}/{draw_id}/1",
-                    headers={"Authorization": f"Bearer {api_key}"},
+                    headers=headers,
                 )
                 assert response.status_code == 200
         n_processed = await process_notifications(asession)

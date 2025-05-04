@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, cast
 
 from sqlalchemy import (
     Boolean,
@@ -15,12 +15,12 @@ from sqlalchemy import (
     text,
     update,
 )
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.exc import NoResultFound
-from ..users.exceptions import UserNotFoundError
 
 from ..models import Base, ExperimentBaseDB
+from ..users.exceptions import UserNotFoundError
 from ..users.schemas import UserCreate
 from .schemas import UserCreateWithCode, UserRoles
 
@@ -98,7 +98,10 @@ class WorkspaceDB(Base):
 
     def __repr__(self) -> str:
         """Define the string representation for the `WorkspaceDB` class."""
-        return f"<Workspace '{self.workspace_name}' mapped to workspace ID `{self.workspace_id}`>"
+        return (
+            f"<Workspace '{self.workspace_name}' mapped to workspace ID "
+            f"`{self.workspace_id}`>"
+        )
 
 
 class UserWorkspaceDB(Base):
@@ -135,7 +138,10 @@ class UserWorkspaceDB(Base):
 
     def __repr__(self) -> str:
         """Define the string representation for the `UserWorkspaceDB` class."""
-        return f"<User ID '{self.user_id} has role '{self.user_role.value}' set for workspace ID '{self.workspace_id}'>."
+        return (
+            f"<User ID '{self.user_id} has role '{self.user_role.value}' "
+            f"set for workspace ID '{self.workspace_id}'>."
+        )
 
 
 class PendingInvitationDB(Base):
@@ -165,7 +171,10 @@ class PendingInvitationDB(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Invitation for {self.email} to workspace {self.workspace_id} with role {self.role}>"
+        return (
+            f"<Invitation for {self.email} to workspace {self.workspace_id} "
+            f"with role {self.role}>"
+        )
 
 
 class ApiKeyRotationHistoryDB(Base):
@@ -196,7 +205,10 @@ class ApiKeyRotationHistoryDB(Base):
 
     def __repr__(self) -> str:
         """Define the string representation."""
-        return f"<API Key Rotation for workspace #{self.workspace_id} by user #{self.rotated_by_user_id}>"
+        return (
+            f"<API Key Rotation for workspace #{self.workspace_id} by user "
+            f"#{self.rotated_by_user_id}>"
+        )
 
 
 async def get_users_in_workspace(
@@ -238,7 +250,8 @@ async def remove_user_from_workspace(
 
     if not user_workspace:
         raise UserNotFoundInWorkspaceError(
-            f"User '{user_db.username}' not found in workspace '{workspace_db.workspace_name}'."
+            f"User '{user_db.username}' not found in workspace "
+            f"'{workspace_db.workspace_name}'."
         )
 
     # Delete the relationship
@@ -451,11 +464,13 @@ async def add_existing_user_to_workspace(
             asession=asession, user_db=user_db, workspace_db=workspace_db
         )
 
+    user_role = cast(UserRoles, user.role)
+
     _ = await create_user_workspace_role(
         asession=asession,
         is_default_workspace=user.is_default_workspace,
         user_db=user_db,
-        user_role=user.role,
+        user_role=user_role,
         workspace_db=workspace_db,
     )
 
