@@ -54,6 +54,9 @@ class WorkspaceDB(Base):
     api_key_updated_datetime_utc: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    api_key_rotated_by_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"), nullable=True
+    )
     content_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_datetime_utc: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
@@ -80,6 +83,17 @@ class WorkspaceDB(Base):
 
     pending_invitations: Mapped[list["PendingInvitationDB"]] = relationship(
         "PendingInvitationDB", back_populates="workspace", cascade="all, delete-orphan"
+    )
+
+    api_key_rotated_by: Mapped["UserDB"] = relationship(
+        "UserDB", foreign_keys=[api_key_rotated_by_user_id]
+    )
+
+    key_rotation_history: Mapped[list["ApiKeyRotationHistoryDB"]] = relationship(
+        "ApiKeyRotationHistoryDB",
+        back_populates="workspace",
+        cascade="all, delete-orphan",
+        order_by="desc(ApiKeyRotationHistoryDB.rotation_datetime_utc)",
     )
 
     def __repr__(self) -> str:
@@ -132,7 +146,9 @@ class PendingInvitationDB(Base):
     invitation_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String, nullable=False)
     workspace_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("workspace.workspace_id", ondelete="CASCADE"), nullable=False
+        Integer,
+        ForeignKey("workspace.workspace_id", ondelete="CASCADE"),
+        nullable=False,
     )
     role: Mapped[UserRoles] = mapped_column(
         Enum(UserRoles, native_enum=False), nullable=False
@@ -147,33 +163,64 @@ class PendingInvitationDB(Base):
     workspace: Mapped["WorkspaceDB"] = relationship(
         "WorkspaceDB", back_populates="pending_invitations"
     )
-    
+
     def __repr__(self) -> str:
         return f"<Invitation for {self.email} to workspace {self.workspace_id} with role {self.role}>"
+
+
+class ApiKeyRotationHistoryDB(Base):
+    """ORM for tracking workspace API key rotation history."""
+
+    __tablename__ = "api_key_rotation_history"
+
+    rotation_id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("workspace.workspace_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rotated_by_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.user_id"), nullable=False
+    )
+    key_first_characters: Mapped[str] = mapped_column(String(5), nullable=False)
+    rotation_datetime_utc: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    workspace: Mapped["WorkspaceDB"] = relationship(
+        "WorkspaceDB", back_populates="key_rotation_history"
+    )
+    rotated_by: Mapped["UserDB"] = relationship(
+        "UserDB", foreign_keys=[rotated_by_user_id]
+    )
+
+    def __repr__(self) -> str:
+        """Define the string representation."""
+        return f"<API Key Rotation for workspace #{self.workspace_id} by user #{self.rotated_by_user_id}>"
 
 
 async def get_users_in_workspace(
     *, asession: AsyncSession, workspace_db: WorkspaceDB
 ) -> Sequence[UserWorkspaceDB]:
     """Get all users in a workspace with their roles."""
-    stmt = (
-        select(UserWorkspaceDB)
-        .where(UserWorkspaceDB.workspace_id == workspace_db.workspace_id)
+    stmt = select(UserWorkspaceDB).where(
+        UserWorkspaceDB.workspace_id == workspace_db.workspace_id
     )
     result = await asession.execute(stmt)
     return result.unique().scalars().all()
 
-async def get_user_by_user_id(
-    user_id: int, asession: AsyncSession
-) -> "UserDB":
+
+async def get_user_by_user_id(user_id: int, asession: AsyncSession) -> "UserDB":
     """Get a user by user ID."""
     from ..users.models import UserDB
+
     stmt = select(UserDB).where(UserDB.user_id == user_id)
     result = await asession.execute(stmt)
     try:
         return result.scalar_one()
     except NoResultFound as e:
         raise UserNotFoundError(f"User with ID {user_id} not found") from e
+
 
 async def remove_user_from_workspace(
     *, asession: AsyncSession, user_db: "UserDB", workspace_db: WorkspaceDB
@@ -188,15 +235,16 @@ async def remove_user_from_workspace(
     )
     result = await asession.execute(stmt)
     user_workspace = result.scalar_one_or_none()
-    
+
     if not user_workspace:
         raise UserNotFoundInWorkspaceError(
             f"User '{user_db.username}' not found in workspace '{workspace_db.workspace_name}'."
         )
-    
+
     # Delete the relationship
     await asession.delete(user_workspace)
     await asession.commit()
+
 
 async def create_pending_invitation(
     *,
@@ -214,12 +262,13 @@ async def create_pending_invitation(
         inviter_id=inviter_id,
         created_datetime_utc=datetime.now(timezone.utc),
     )
-    
+
     asession.add(invitation)
     await asession.commit()
     await asession.refresh(invitation)
-    
+
     return invitation
+
 
 async def get_pending_invitations_by_email(
     *, asession: AsyncSession, email: str
@@ -228,6 +277,7 @@ async def get_pending_invitations_by_email(
     stmt = select(PendingInvitationDB).where(PendingInvitationDB.email == email)
     result = await asession.execute(stmt)
     return result.scalars().all()
+
 
 async def delete_pending_invitation(
     *, asession: AsyncSession, invitation: PendingInvitationDB

@@ -111,12 +111,15 @@ async def login_google(
     from ..workspaces.utils import create_workspace
 
     user_email = idinfo["email"]
+    first_name = idinfo.get("given_name", "")
+    last_name = idinfo.get("family_name", "")
+
     user = await authenticate_or_create_google_user(
         request=request,
         google_email=idinfo["email"],
         asession=asession,
-        first_name=idinfo["given_name"],
-        last_name=idinfo["family_name"],
+        first_name=first_name,
+        last_name=last_name,
     )
     if not user:
         raise HTTPException(
@@ -144,6 +147,8 @@ async def login_google(
             user=UserCreate(
                 role=UserRoles.ADMIN,
                 username=user_email,
+                first_name=first_name,
+                last_name=last_name,
                 workspace_name=default_workspace_name,
             ),
             is_default=True,

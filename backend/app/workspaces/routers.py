@@ -3,6 +3,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.exceptions import HTTPException
 from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +25,7 @@ from ..users.models import (
 from ..users.schemas import MessageResponse, UserCreate
 from ..utils import generate_key, setup_logger
 from .models import (
+    ApiKeyRotationHistoryDB,
     UserNotFoundInWorkspaceError,
     add_existing_user_to_workspace,
     check_if_user_has_default_workspace,
@@ -37,6 +39,7 @@ from .models import (
     update_user_default_workspace,
 )
 from .schemas import (
+    ApiKeyRotationHistory,
     UserRoles,
     WorkspaceCreate,
     WorkspaceInvite,
@@ -123,10 +126,17 @@ async def create_workspace_endpoint(
             workspace_db=workspace_db,
         )
 
+        # Update with API key rotation user info
+        workspace_db.api_key_rotated_by_user_id = calling_user_db.user_id
+        await asession.commit()
+        await asession.refresh(workspace_db)
+
         return WorkspaceRetrieve(
             api_daily_quota=workspace_db.api_daily_quota,
             api_key_first_characters=workspace_db.api_key_first_characters,
             api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+            api_key_rotated_by_user_id=workspace_db.api_key_rotated_by_user_id,
+            api_key_rotated_by_username=calling_user_db.username,
             content_quota=workspace_db.content_quota,
             created_datetime_utc=workspace_db.created_datetime_utc,
             updated_datetime_utc=workspace_db.updated_datetime_utc,
@@ -151,20 +161,36 @@ async def retrieve_all_workspaces(
         asession=asession, user_db=calling_user_db
     )
 
-    return [
-        WorkspaceRetrieve(
-            api_daily_quota=workspace_db.api_daily_quota,
-            api_key_first_characters=workspace_db.api_key_first_characters,
-            api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
-            content_quota=workspace_db.content_quota,
-            created_datetime_utc=workspace_db.created_datetime_utc,
-            updated_datetime_utc=workspace_db.updated_datetime_utc,
-            workspace_id=workspace_db.workspace_id,
-            workspace_name=workspace_db.workspace_name,
-            is_default=workspace_db.is_default,
+    result = []
+    for workspace_db in user_workspaces:
+        # Get username of the person who rotated the key if available
+        rotator_username = None
+        if workspace_db.api_key_rotated_by_user_id:
+            try:
+                rotator_user = await get_user_by_user_id(
+                    workspace_db.api_key_rotated_by_user_id, asession
+                )
+                rotator_username = rotator_user.username
+            except UserNotFoundError:
+                rotator_username = "Unknown User"
+
+        result.append(
+            WorkspaceRetrieve(
+                api_daily_quota=workspace_db.api_daily_quota,
+                api_key_first_characters=workspace_db.api_key_first_characters,
+                api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+                api_key_rotated_by_user_id=workspace_db.api_key_rotated_by_user_id,
+                api_key_rotated_by_username=rotator_username,
+                content_quota=workspace_db.content_quota,
+                created_datetime_utc=workspace_db.created_datetime_utc,
+                updated_datetime_utc=workspace_db.updated_datetime_utc,
+                workspace_id=workspace_db.workspace_id,
+                workspace_name=workspace_db.workspace_name,
+                is_default=workspace_db.is_default,
+            )
         )
-        for workspace_db in user_workspaces
-    ]
+
+    return result
 
 
 @router.get("/current", response_model=WorkspaceRetrieve)
@@ -178,10 +204,23 @@ async def get_current_workspace(
             asession=asession, user_db=calling_user_db
         )
 
+        # Get username of the person who rotated the key if available
+        rotator_username = None
+        if workspace_db.api_key_rotated_by_user_id:
+            try:
+                rotator_user = await get_user_by_user_id(
+                    workspace_db.api_key_rotated_by_user_id, asession
+                )
+                rotator_username = rotator_user.username
+            except UserNotFoundError:
+                rotator_username = "Unknown User"
+
         return WorkspaceRetrieve(
             api_daily_quota=workspace_db.api_daily_quota,
             api_key_first_characters=workspace_db.api_key_first_characters,
             api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+            api_key_rotated_by_user_id=workspace_db.api_key_rotated_by_user_id,
+            api_key_rotated_by_username=rotator_username,
             content_quota=workspace_db.content_quota,
             created_datetime_utc=workspace_db.created_datetime_utc,
             updated_datetime_utc=workspace_db.updated_datetime_utc,
@@ -268,7 +307,10 @@ async def rotate_workspace_api_key(
         new_api_key = generate_key()
         asession.add(workspace_db)
         workspace_db = await update_workspace_api_key(
-            asession=asession, new_api_key=new_api_key, workspace_db=workspace_db
+            asession=asession,
+            new_api_key=new_api_key,
+            workspace_db=workspace_db,
+            user_db=calling_user_db,
         )
 
         return WorkspaceKeyResponse(
@@ -280,6 +322,67 @@ async def rotate_workspace_api_key(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error rotating workspace API key.",
+        ) from e
+
+
+@router.get("/{workspace_id}/key-history", response_model=list[ApiKeyRotationHistory])
+async def get_workspace_key_history(
+    workspace_id: int,
+    calling_user_db: Annotated[UserDB, Depends(get_verified_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> list[ApiKeyRotationHistory]:
+    """Get API key rotation history for a workspace."""
+    try:
+        workspace_db = await get_workspace_by_workspace_id(
+            asession=asession, workspace_id=workspace_id
+        )
+
+        user_role = await get_user_role_in_workspace(
+            asession=asession, user_db=calling_user_db, workspace_db=workspace_db
+        )
+
+        if user_role is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User does not have access to workspace with ID {workspace_id}.",
+            )
+
+        # Query for rotation history
+        stmt = (
+            select(ApiKeyRotationHistoryDB)
+            .where(ApiKeyRotationHistoryDB.workspace_id == workspace_id)
+            .order_by(ApiKeyRotationHistoryDB.rotation_datetime_utc.desc())
+        )
+
+        result = await asession.execute(stmt)
+        rotation_history = result.scalars().all()
+
+        formatted_history = []
+        for history in rotation_history:
+            try:
+                rotator_user = await get_user_by_user_id(
+                    history.rotated_by_user_id, asession
+                )
+                rotator_username = rotator_user.username
+            except UserNotFoundError:
+                rotator_username = "Unknown User"
+
+            formatted_history.append(
+                ApiKeyRotationHistory(
+                    rotation_id=history.rotation_id,
+                    workspace_id=history.workspace_id,
+                    rotated_by_user_id=history.rotated_by_user_id,
+                    rotated_by_username=rotator_username,
+                    key_first_characters=history.key_first_characters,
+                    rotation_datetime_utc=history.rotation_datetime_utc,
+                )
+            )
+
+        return formatted_history
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workspace with ID {workspace_id} not found.",
         ) from e
 
 
@@ -307,10 +410,23 @@ async def retrieve_workspace_by_workspace_id(
                 detail=f"User does not have access to workspace with ID {workspace_id}.",
             )
 
+        # Get username of the person who rotated the key if available
+        rotator_username = None
+        if workspace_db.api_key_rotated_by_user_id:
+            try:
+                rotator_user = await get_user_by_user_id(
+                    workspace_db.api_key_rotated_by_user_id, asession
+                )
+                rotator_username = rotator_user.username
+            except UserNotFoundError:
+                rotator_username = "Unknown User"
+
         return WorkspaceRetrieve(
             api_daily_quota=workspace_db.api_daily_quota,
             api_key_first_characters=workspace_db.api_key_first_characters,
             api_key_updated_datetime_utc=workspace_db.api_key_updated_datetime_utc,
+            api_key_rotated_by_user_id=workspace_db.api_key_rotated_by_user_id,
+            api_key_rotated_by_username=rotator_username,
             content_quota=workspace_db.content_quota,
             created_datetime_utc=workspace_db.created_datetime_utc,
             updated_datetime_utc=workspace_db.updated_datetime_utc,
@@ -473,7 +589,7 @@ async def invite_user_to_workspace(
                 role=invite.role,
                 inviter_id=calling_user_db.user_id,
             )
-            
+
             # Send invitation email
             background_tasks.add_task(
                 email_service.send_workspace_invitation_email,
@@ -515,21 +631,21 @@ async def get_workspace_users(
         workspace_db = await get_workspace_by_workspace_id(
             asession=asession, workspace_id=workspace_id
         )
-        
+
         user_role = await get_user_role_in_workspace(
             asession=asession, user_db=calling_user_db, workspace_db=workspace_db
         )
-        
+
         if user_role is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"User does not have access to workspace with ID {workspace_id}.",
             )
-        
+
         user_workspaces = await get_users_in_workspace(
             asession=asession, workspace_db=workspace_db
         )
-        
+
         result = []
         for uw in user_workspaces:
             user = await get_user_by_user_id(uw.user_id, asession)
@@ -544,13 +660,14 @@ async def get_workspace_users(
                     created_datetime_utc=uw.created_datetime_utc,
                 )
             )
-        
+
         return result
     except WorkspaceNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Workspace with ID {workspace_id} not found.",
         ) from e
+
 
 @router.delete("/{workspace_id}/users/{username}", response_model=MessageResponse)
 async def remove_user_from_workspace_endpoint(
@@ -564,37 +681,39 @@ async def remove_user_from_workspace_endpoint(
         workspace_db = await get_workspace_by_workspace_id(
             asession=asession, workspace_id=workspace_id
         )
-        
+
         caller_role = await get_user_role_in_workspace(
             asession=asession, user_db=calling_user_db, workspace_db=workspace_db
         )
-        
+
         if caller_role != UserRoles.ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only workspace administrators can remove users.",
             )
-        
+
         if workspace_db.is_default:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot remove users from default workspaces.",
             )
-        
+
         if username == calling_user_db.username:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You cannot remove yourself from a workspace.",
             )
-        
+
         try:
-            user_to_remove = await get_user_by_username(username=username, asession=asession)
+            user_to_remove = await get_user_by_username(
+                username=username, asession=asession
+            )
         except UserNotFoundError:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User with username '{username}' not found.",
             )
-        
+
         try:
             await remove_user_from_workspace(
                 asession=asession, user_db=user_to_remove, workspace_db=workspace_db

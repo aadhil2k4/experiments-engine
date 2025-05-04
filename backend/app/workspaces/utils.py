@@ -5,9 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..users.models import UserDB
 from ..users.schemas import UserCreate
 from ..utils import get_key_hash
-from .models import WorkspaceDB
+from .models import ApiKeyRotationHistoryDB, WorkspaceDB
 from .schemas import WorkspaceUpdate
 
 
@@ -112,14 +113,27 @@ async def is_workspace_name_valid(
 
 
 async def update_workspace_api_key(
-    *, asession: AsyncSession, new_api_key: str, workspace_db: WorkspaceDB
+    *,
+    asession: AsyncSession,
+    new_api_key: str,
+    workspace_db: WorkspaceDB,
+    user_db: "UserDB",
 ) -> WorkspaceDB:
-    """Update a workspace API key."""
+    """Update a workspace API key and record the rotation history."""
     workspace_db.hashed_api_key = get_key_hash(key=new_api_key)
     workspace_db.api_key_first_characters = new_api_key[:5]
     workspace_db.api_key_updated_datetime_utc = datetime.now(timezone.utc)
+    workspace_db.api_key_rotated_by_user_id = user_db.user_id
     workspace_db.updated_datetime_utc = datetime.now(timezone.utc)
 
+    rotation_history = ApiKeyRotationHistoryDB(
+        workspace_id=workspace_db.workspace_id,
+        rotated_by_user_id=user_db.user_id,
+        key_first_characters=new_api_key[:5],
+        rotation_datetime_utc=datetime.now(timezone.utc),
+    )
+
+    asession.add(rotation_history)
     await asession.commit()
     await asession.refresh(workspace_db)
 

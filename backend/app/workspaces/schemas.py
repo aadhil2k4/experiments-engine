@@ -50,6 +50,8 @@ class WorkspaceRetrieve(BaseModel):
     api_daily_quota: Optional[int] = None
     api_key_first_characters: Optional[str] = None
     api_key_updated_datetime_utc: Optional[datetime] = None
+    api_key_rotated_by_user_id: Optional[int] = None
+    api_key_rotated_by_username: Optional[str] = None
     content_quota: Optional[int] = None
     created_datetime_utc: datetime
     updated_datetime_utc: Optional[datetime] = None
@@ -122,7 +124,7 @@ class WorkspaceInviteResponse(BaseModel):
 
 class WorkspaceUserResponse(BaseModel):
     """Pydantic model for workspace user information."""
-    
+
     user_id: int
     username: str
     first_name: str
@@ -130,5 +132,18 @@ class WorkspaceUserResponse(BaseModel):
     role: UserRoles
     is_default_workspace: bool
     created_datetime_utc: datetime
-    
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApiKeyRotationHistory(BaseModel):
+    """Pydantic model for API key rotation history."""
+
+    rotation_id: int
+    workspace_id: int
+    rotated_by_user_id: int
+    rotated_by_username: str
+    key_first_characters: str
+    rotation_datetime_utc: datetime
+
     model_config = ConfigDict(from_attributes=True)

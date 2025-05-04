@@ -179,12 +179,16 @@ const switchWorkspace = async (token: string | null, workspaceName: string) => {
   }
 };
 
-const createWorkspace = async (token: string | null, workspaceName: string, 
-  apiDailyQuota?: number, contentQuota?: number) => {
+const createWorkspace = async (
+  token: string | null,
+  workspaceName: string,
+  apiDailyQuota?: number,
+  contentQuota?: number
+) => {
   try {
     const response = await api.post(
       "/workspace/",
-      { 
+      {
         workspace_name: workspaceName,
         api_daily_quota: apiDailyQuota,
         content_quota: contentQuota
@@ -317,6 +321,19 @@ const removeUserFromWorkspace = async (
   }
 };
 
+const getWorkspaceKeyHistory = async (token: string | null, workspaceId: number) => {
+  try {
+    const response = await api.get(`/workspace/${workspaceId}/key-history`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error fetching API key history");
+  }
+};
+
 export const apiCalls = {
   getUser,
   getLoginToken,
@@ -336,5 +353,6 @@ export const apiCalls = {
   getWorkspaceUsers,
   inviteUserToWorkspace,
   removeUserFromWorkspace,
+  getWorkspaceKeyHistory,
 };
 export default api;

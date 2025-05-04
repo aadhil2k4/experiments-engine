@@ -1,4 +1,3 @@
-// Path: frontend/src/app/(protected)/workspaces/[workspaceId]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +6,7 @@ import { useAuth } from "@/utils/auth";
 import { apiCalls } from "@/utils/api";
 import { useToast } from "@/hooks/use-toast";
 
-import { Building, ChevronLeftIcon, Users, Key, Copy } from "lucide-react";
+import { Building, ChevronLeftIcon, Users, Key, Copy, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -47,7 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Workspace, WorkspaceUser } from "../types";
+import { Workspace, WorkspaceUser, ApiKeyRotation } from "../types";
 
 export default function WorkspaceDetailPage() {
   const params = useParams();
@@ -58,7 +57,9 @@ export default function WorkspaceDetailPage() {
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const [keyRotationHistory, setKeyRotationHistory] = useState<ApiKeyRotation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isRotatingKey, setIsRotatingKey] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
@@ -81,6 +82,8 @@ export default function WorkspaceDetailPage() {
         // Fetch workspace users
         const usersData = await apiCalls.getWorkspaceUsers(token, workspaceId);
         setWorkspaceUsers(usersData);
+
+        await loadKeyRotationHistory();
       } catch (error) {
         console.error("Error loading workspace data:", error);
         toast({
@@ -95,6 +98,25 @@ export default function WorkspaceDetailPage() {
 
     loadWorkspaceData();
   }, [token, workspaceId, toast]);
+
+  const loadKeyRotationHistory = async () => {
+    if (!token) return;
+
+    setIsLoadingHistory(true);
+    try {
+      const historyData = await apiCalls.getWorkspaceKeyHistory(token, workspaceId);
+      setKeyRotationHistory(historyData);
+    } catch (error) {
+      console.error("Error loading key rotation history:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load key rotation history",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const handleRotateApiKey = async () => {
     if (!token || !workspace) return;
@@ -119,6 +141,8 @@ export default function WorkspaceDetailPage() {
         workspaceId
       );
       setWorkspace(updatedWorkspace);
+
+      await loadKeyRotationHistory();
 
       toast({
         title: "Success",
@@ -314,6 +338,9 @@ export default function WorkspaceDetailPage() {
                         {new Date(
                           workspace.api_key_updated_datetime_utc
                         ).toLocaleDateString()}
+                        {workspace.api_key_rotated_by_username && (
+                          <span> by <span className="font-medium">{workspace.api_key_rotated_by_username}</span></span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -508,6 +535,9 @@ export default function WorkspaceDetailPage() {
                     {new Date(
                       workspace.api_key_updated_datetime_utc
                     ).toLocaleString()}
+                    {workspace.api_key_rotated_by_username && (
+                      <span> by <span className="font-medium">{workspace.api_key_rotated_by_username}</span></span>
+                    )}
                   </p>
                 </div>
 
@@ -537,6 +567,49 @@ export default function WorkspaceDetailPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium flex items-center">
+                    <History className="h-4 w-4 mr-2" />
+                    API Key Rotation History
+                  </h3>
+                  <div className="border rounded-md">
+                    <div className="grid grid-cols-12 gap-4 p-4 bg-muted font-medium">
+                      <div className="col-span-5">Date & Time</div>
+                      <div className="col-span-4">Rotated By</div>
+                      <div className="col-span-3">Key Prefix</div>
+                    </div>
+                    {isLoadingHistory ? (
+                      <div className="p-8 text-center">
+                        <Hourglass />
+                        <p className="mt-2 text-sm text-muted-foreground">Loading history...</p>
+                      </div>
+                    ) : keyRotationHistory.length > 0 ? (
+                      keyRotationHistory.map((rotation) => (
+                        <div key={rotation.rotation_id} className="grid grid-cols-12 gap-4 p-4 border-t">
+                          <div className="col-span-5 text-sm">
+                            {new Date(rotation.rotation_datetime_utc).toLocaleString()}
+                          </div>
+                          <div className="col-span-4 text-sm">
+                            {rotation.rotated_by_username}
+                          </div>
+                          <div className="col-span-3 text-sm font-mono">
+                            {rotation.key_first_characters}•••••
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No rotation history available
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    This table shows the complete history of API key rotations.
+                  </p>
                 </div>
 
                 <Separator />
