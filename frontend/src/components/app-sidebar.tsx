@@ -1,7 +1,6 @@
 "use client";
 import * as React from "react";
 import {
-  ArrowLeftRightIcon,
   LayoutDashboardIcon,
   FlaskConicalIcon,
   Settings2,

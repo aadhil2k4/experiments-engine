@@ -100,10 +100,11 @@ export function CreateWorkspaceDialog({
 
       // Navigate to workspaces page
       router.push("/workspaces");
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create workspace. Please try again.";
       toast({
         title: "Error creating workspace",
-        description: error.message || "Failed to create workspace. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

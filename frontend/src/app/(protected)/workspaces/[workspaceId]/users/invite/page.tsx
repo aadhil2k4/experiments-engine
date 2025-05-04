@@ -66,9 +66,9 @@ export default function InviteUserPage() {
   const { toast } = useToast();
   const [isInviting, setIsInviting] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState(false);
-  
+
   const workspaceId = Number(params.workspaceId);
-  
+
   // Initialize form
   const form = useForm<InviteFormValues>({
     resolver: zodResolver(InviteFormSchema),
@@ -77,23 +77,23 @@ export default function InviteUserPage() {
       role: "read_only", // Default to read-only
     },
   });
-  
+
   const onSubmit = async (data: InviteFormValues) => {
     if (!token) return;
-    
+
     setIsInviting(true);
     try {
       // First need to get workspace name
       const workspace = await apiCalls.getWorkspaceById(token, workspaceId);
-      
+
       // Send invitation
-      const response = await apiCalls.inviteUserToWorkspace(
+      await apiCalls.inviteUserToWorkspace(
         token,
         data.email,
         workspace.workspace_name,
         data.role
       );
-      
+
       // Show success message
       setInviteSuccess(true);
       toast({
@@ -101,20 +101,20 @@ export default function InviteUserPage() {
         description: `${data.email} has been invited to the workspace`,
         variant: "success",
       });
-      
+
       // Reset form
       form.reset();
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to send invitation",
+        description: error instanceof Error ? error.message : "Failed to send invitation",
         variant: "destructive",
       });
     } finally {
       setIsInviting(false);
     }
   };
-  
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
@@ -138,7 +138,7 @@ export default function InviteUserPage() {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      
+
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
           <div className="p-2 bg-muted rounded-md mr-3">
@@ -151,7 +151,7 @@ export default function InviteUserPage() {
           Back
         </Button>
       </div>
-      
+
       <Card className="max-w-md mx-auto">
         <CardHeader>
           <CardTitle>Invite User to Workspace</CardTitle>
@@ -178,15 +178,15 @@ export default function InviteUserPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
@@ -206,9 +206,9 @@ export default function InviteUserPage() {
                   </FormItem>
                 )}
               />
-              
-              <Button 
-                type="submit" 
+
+              <Button
+                type="submit"
                 className="w-full"
                 disabled={isInviting}
               >
@@ -217,7 +217,7 @@ export default function InviteUserPage() {
               </Button>
             </form>
           </Form>
-          
+
           {inviteSuccess && (
             <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
               <h4 className="font-medium text-green-900 dark:text-green-500">
@@ -230,7 +230,7 @@ export default function InviteUserPage() {
           )}
         </CardContent>
         <CardFooter>
-          <Button 
+          <Button
             variant="outline"
             className="w-full"
             onClick={() => router.push(`/workspaces/${workspaceId}`)}

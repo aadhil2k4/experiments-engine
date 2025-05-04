@@ -51,8 +51,10 @@ import { Workspace, WorkspaceUser, ApiKeyRotation } from "../types";
 export default function WorkspaceDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { token, currentWorkspace, fetchWorkspaces, switchWorkspace } =
+  const { user: currentUser, token, currentWorkspace, fetchWorkspaces, switchWorkspace } =
     useAuth();
+
+  console.log("Current workspace:", currentWorkspace);
   const { toast } = useToast();
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -149,10 +151,11 @@ export default function WorkspaceDetailPage() {
         description: "API key rotated successfully",
         variant: "success",
       });
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to rotate API key";
       toast({
         title: "Error",
-        description: error.message || "Failed to rotate API key",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -185,10 +188,11 @@ export default function WorkspaceDetailPage() {
         description: `${username} has been removed from the workspace`,
         variant: "success",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to remove user";
       toast({
         title: "Error",
-        description: error.message || "Failed to remove user",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -422,7 +426,7 @@ export default function WorkspaceDetailPage() {
                       // Find the current user to determine if they have admin rights
                       const isCurrentUserAdmin =
                         workspaceUsers.find(
-                          (u) => u.username === currentWorkspace?.username
+                          (u) => u.username === currentUser
                         )?.role === "admin";
 
                       return (
