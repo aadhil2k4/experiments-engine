@@ -4,7 +4,6 @@ import {
   LayoutDashboardIcon,
   FlaskConicalIcon,
   Settings2,
-  Building,
 } from "lucide-react";
 import { NavMain } from "@/components/nav-main";
 import { NavRecentExperiments } from "@/components/nav-recent-experiments";
@@ -34,11 +33,6 @@ const AppSidebar = React.memo(function AppSidebar({
       title: "Dashboard",
       url: "#",
       icon: LayoutDashboardIcon,
-    },
-    {
-      title: "Workspaces",
-      url: "/workspaces",
-      icon: Building,
     },
     {
       title: "Settings",

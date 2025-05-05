@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -18,6 +19,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import Link from "next/link";
 
 export function WorkspaceSwitcher() {
   const { isMobile } = useSidebar();
@@ -86,6 +88,17 @@ export function WorkspaceSwitcher() {
                 <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2 p-2">
+                <Link href="/workspaces" className="flex items-center gap-2 w-full">
+                  <div className="flex size-6 items-center justify-center rounded-md border bg-background">
+                    <span className="text-lg">+</span>
+                  </div>
+                  <div className="font-medium text-muted-foreground">
+                    Add workspace
+                  </div>
+                </Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
