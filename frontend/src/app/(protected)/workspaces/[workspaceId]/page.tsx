@@ -54,7 +54,6 @@ export default function WorkspaceDetailPage() {
   const { user: currentUser, token, currentWorkspace, fetchWorkspaces, switchWorkspace } =
     useAuth();
 
-  console.log("Current workspace:", currentWorkspace);
   const { toast } = useToast();
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);

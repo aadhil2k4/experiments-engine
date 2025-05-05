@@ -6,7 +6,7 @@ from typing import Optional, Union
 from redis import asyncio as aioredis
 from sqlalchemy import select
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
-from sqlalchemy.orm import Session  # Import Session type
+from sqlalchemy.orm import Session
 
 from app.config import REDIS_HOST
 from app.database import get_session
@@ -93,7 +93,7 @@ def ensure_default_workspace(db_session: Session, user_db: UserDB) -> None:
         # Check if any workspace is set as default
         stmt = select(UserWorkspaceDB).where(
             UserWorkspaceDB.user_id == user_db.user_id,
-            UserWorkspaceDB.default_workspace,  # Fixed boolean comparison
+            UserWorkspaceDB.default_workspace,
         )
         result = db_session.execute(stmt)
         default_workspace = result.scalar_one_or_none()
@@ -185,7 +185,6 @@ if __name__ == "__main__":
         logger.error(
             f"Multiple users with username {user_db.username} found in local database."
         )
-        # Just get the first one
         existing_users = result.all()
         user_db = existing_users[0][0]
 
