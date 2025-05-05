@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import (
     Boolean,
@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from .schemas import AutoFailUnitType, EventType, Notifications, ObservationType
-from .workspaces.models import WorkspaceDB
+
+if TYPE_CHECKING:
+    from .workspaces.models import WorkspaceDB
 
 
 class Base(DeclarativeBase):
