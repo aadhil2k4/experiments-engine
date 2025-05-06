@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -12,10 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..models import Base
+from ..users.exceptions import UserAlreadyExistsError, UserNotFoundError
 from ..utils import get_key_hash, get_password_salted_hash, get_random_string
 from ..workspaces.models import UserWorkspaceDB, WorkspaceDB
 from .schemas import UserCreate, UserCreateWithPassword
-from ..users.exceptions import UserAlreadyExistsError, UserNotFoundError
 
 PASSWORD_LENGTH = 12
 
@@ -64,6 +66,27 @@ class UserDB(Base):
     def __repr__(self) -> str:
         """Pretty Print"""
         return f"<{self.username} mapped to #{self.user_id}>"
+
+
+@dataclass
+class UserDBWithWorkspace:
+    """
+    A wrapper class for UserDB that adds a current_workspace attribute.
+    This avoids modifying the SQLAlchemy model directly.
+    """
+
+    user: UserDB
+    current_workspace: "WorkspaceDB"
+
+    def __getattr__(self, name: str) -> Any:
+        """
+        Delegate attribute access to the wrapped UserDB instance.
+        """
+        return getattr(self.user, name)
+
+    def get_user_db(self) -> UserDB:
+        """Return the underlying UserDB instance."""
+        return self.user
 
 
 async def save_user_to_db(

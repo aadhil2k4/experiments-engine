@@ -9,7 +9,7 @@ from ..auth.dependencies import authenticate_workspace_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, ObservationType
-from ..users.models import UserDB
+from ..users.models import UserDB, UserDBWithWorkspace
 from ..workspaces.models import get_user_default_workspace, get_user_role_in_workspace
 from ..workspaces.schemas import UserRoles
 from .models import (
@@ -189,7 +189,7 @@ async def draw_arm(
     experiment_id: int,
     draw_id: Optional[str] = None,
     client_id: Optional[str] = None,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> BayesianABDrawResponse:
     """
@@ -269,7 +269,7 @@ async def save_observation_for_arm(
     experiment_id: int,
     draw_id: str,
     outcome: float,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> BayesABArmResponse:
     """
@@ -303,7 +303,7 @@ async def save_observation_for_arm(
 )
 async def get_outcomes(
     experiment_id: int,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[BayesianABObservationResponse]:
     """
@@ -335,7 +335,7 @@ async def get_outcomes(
 )
 async def update_arms(
     experiment_id: int,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[BayesABArmResponse]:
     """

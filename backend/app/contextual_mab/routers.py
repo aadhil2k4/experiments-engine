@@ -14,7 +14,7 @@ from ..schemas import (
     ObservationType,
     Outcome,
 )
-from ..users.models import UserDB
+from ..users.models import UserDB, UserDBWithWorkspace
 from ..utils import setup_logger
 from ..workspaces.models import get_user_default_workspace, get_user_role_in_workspace
 from ..workspaces.schemas import UserRoles
@@ -193,7 +193,7 @@ async def draw_arm(
     context: List[ContextInput],
     draw_id: Optional[str] = None,
     client_id: Optional[str] = None,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> CMABDrawResponse:
     """
@@ -297,7 +297,7 @@ async def update_arm(
     experiment_id: int,
     draw_id: str,
     reward: float,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContextualArmResponse:
     """
@@ -309,11 +309,11 @@ async def update_arm(
 
     # Get the experiment and do checks
     experiment, draw = await validate_experiment_and_draw(
-        experiment_id, draw_id, user_db.user_id, workspace_id, asession
+        experiment_id, draw_id, user_db.user.user_id, workspace_id, asession
     )
 
     return await update_based_on_outcome(
-        experiment, draw, reward, asession, user_db, ObservationType.USER
+        experiment, draw, reward, asession, user_db.get_user_db(), ObservationType.USER
     )
 
 
@@ -323,7 +323,7 @@ async def update_arm(
 )
 async def get_outcomes(
     experiment_id: int,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[CMABObservationResponse]:
     """

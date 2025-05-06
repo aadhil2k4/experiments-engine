@@ -9,7 +9,7 @@ from ..auth.dependencies import authenticate_workspace_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import NotificationsResponse, ObservationType
-from ..users.models import UserDB
+from ..users.models import UserDB, UserDBWithWorkspace
 from ..utils import setup_logger
 from ..workspaces.models import get_user_default_workspace, get_user_role_in_workspace
 from ..workspaces.schemas import UserRoles
@@ -190,7 +190,7 @@ async def draw_arm(
     experiment_id: int,
     draw_id: Optional[str] = None,
     client_id: Optional[str] = None,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> MABDrawResponse:
     """
@@ -270,7 +270,7 @@ async def update_arm(
     experiment_id: int,
     draw_id: str,
     outcome: float,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> ArmResponse:
     """
@@ -295,7 +295,7 @@ async def update_arm(
 )
 async def get_outcomes(
     experiment_id: int,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[MABObservationResponse]:
     """

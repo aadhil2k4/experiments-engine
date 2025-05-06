@@ -20,6 +20,7 @@ from ..database import get_async_session
 from ..users.exceptions import UserNotFoundError
 from ..users.models import (
     UserDB,
+    UserDBWithWorkspace,
     get_user_by_api_key,
     get_user_by_username,
     save_user_to_db,
@@ -76,7 +77,7 @@ async def authenticate_key(
 async def authenticate_workspace_key(
     asession: AsyncSession = Depends(get_async_session),
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
-) -> UserDB:
+) -> UserDBWithWorkspace:
     """
     Authenticate using workspace API key.
     Returns the user associated with the workspace for the request context.
@@ -117,10 +118,7 @@ async def authenticate_workspace_key(
                 detail="No active users associated with this workspace",
             )
 
-        # Add the workspace context to the user object
-        user.current_workspace = workspace
-
-        return user
+        return UserDBWithWorkspace(user=user, current_workspace=workspace)
     except NoResultFound as err:
         # Fixed exception chaining
         raise HTTPException(
@@ -295,7 +293,7 @@ async def update_workspace_api_limits(
 
 async def workspace_rate_limiter(
     request: Request,
-    user_db: UserDB = Depends(authenticate_workspace_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
 ) -> None:
     """
     Rate limiter for the API calls using workspace quota instead of user quota.
