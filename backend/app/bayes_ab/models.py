@@ -214,8 +214,7 @@ async def get_all_bayes_ab_experiments(
     stmt = (
         select(BayesianABDB)
         .where(
-            BayesianABDB.user_id == user_id,
-            BayesianABDB.workspace_id == workspace_id
+            BayesianABDB.user_id == user_id, BayesianABDB.workspace_id == workspace_id
         )
         .order_by(BayesianABDB.experiment_id)
     )
