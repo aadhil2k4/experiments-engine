@@ -2,7 +2,7 @@
 
 ## Log in to the application
 
-If you have deployed the docker containers locally as per the instructions [here](../deploying.md), you should see a login screen when you navigate to `https://localhost/`
+If you have deployed the docker containers locally as per the instructions [here](../../deploying.md), you should see a login screen when you navigate to `https://localhost/`
 
 ![Login Screen](../images/create_experiment/login.png)
 
