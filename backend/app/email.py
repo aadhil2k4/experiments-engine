@@ -143,7 +143,10 @@ class EmailService:
             <body>
                 <h1>Workspace Invitation</h1>
                 <p>Hello {username},</p>
-                <p>You have been invited by {inviter_email} to join the workspace "{workspace_name}".</p>
+                <p>
+                    You have been invited by {inviter_email} to join the workspace
+                    "{workspace_name}".
+                </p>
                 <p>You have been added to this workspace. Log in to access it.</p>
                 <p><a href="{FRONTEND_URL}/login">Login to Your Account</a></p>
             </body>
@@ -154,21 +157,28 @@ class EmailService:
 
             Hello {username},
 
-            You have been invited by {inviter_email} to join the workspace "{workspace_name}".
+            You have been invited by {inviter_email} to join the workspace "
+            {workspace_name}".
 
             You have been added to this workspace. Log in to access it.
 
             {FRONTEND_URL}/login
             """
         else:
-            subject = f"Invitation to Create an Account and Join a Workspace: {workspace_name}"
+            subject = (
+                f"Invitation to Create an Account and Join a Workspace: "
+                f"{workspace_name}"
+            )
             html_body = f"""
             <html>
             <head></head>
             <body>
                 <h1>Workspace Invitation</h1>
                 <p>Hello,</p>
-                <p>You have been invited by {inviter_email} to join the workspace "{workspace_name}".</p>
+                <p>
+                    You have been invited by {inviter_email} to join the workspace
+                    "{workspace_name}".
+                </p>
                 <p>You need to create an account to join this workspace.</p>
                 <p><a href="{FRONTEND_URL}/register">Create Your Account</a></p>
             </body>
@@ -179,7 +189,8 @@ class EmailService:
 
             Hello,
 
-            You have been invited by {inviter_email} to join the workspace "{workspace_name}".
+            You have been invited by {inviter_email} to join the workspace "
+            {workspace_name}".
 
             You need to create an account to join this workspace.
 

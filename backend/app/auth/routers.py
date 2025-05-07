@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
 from ..database import get_async_session, get_redis
 from ..email import EmailService
+from ..users.exceptions import UserNotFoundError
 from ..users.models import (
     get_user_by_username,
     update_user_password,
     update_user_verification_status,
 )
-from ..users.exceptions import UserNotFoundError
 from ..users.schemas import (
     EmailVerificationRequest,
     MessageResponse,

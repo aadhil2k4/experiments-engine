@@ -1,13 +1,10 @@
 from typing import Annotated, List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from fastapi.exceptions import HTTPException
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from ..users.exceptions import UserNotFoundError
 
 from ..auth.dependencies import (
     create_access_token,
@@ -18,6 +15,7 @@ from ..auth.schemas import AuthenticationDetails
 from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
 from ..database import get_async_session, get_redis
 from ..email import EmailService
+from ..users.exceptions import UserNotFoundError
 from ..users.models import (
     UserDB,
     get_user_by_username,
@@ -83,7 +81,10 @@ async def create_workspace_endpoint(
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User must be assigned to a workspace first before creating new workspaces.",
+            detail=(
+                "User must be assigned to a workspace first before creating "
+                "new workspaces."
+            ),
         )
 
     # Check if workspace name is valid
@@ -261,7 +262,10 @@ async def switch_workspace(
     if user_role is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User does not have access to workspace '{workspace_switch.workspace_name}'.",
+            detail=(
+                f"User does not have access to workspace "
+                f"'{workspace_switch.workspace_name}'."
+            ),
         )
 
     # Set this workspace as the default for the user
@@ -344,7 +348,9 @@ async def get_workspace_key_history(
         if user_role is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"User does not have access to workspace with ID {workspace_id}.",
+                detail=(
+                    f"User does not have access to workspace with ID {workspace_id}."
+                ),
             )
 
         # Query for rotation history
@@ -407,7 +413,9 @@ async def retrieve_workspace_by_workspace_id(
         if user_role is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"User does not have access to workspace with ID {workspace_id}.",
+                detail=(
+                    f"User does not have access to workspace with ID {workspace_id}."
+                ),
             )
 
         # Get username of the person who rotated the key if available
@@ -476,7 +484,10 @@ async def update_workspace_endpoint(
             ):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Workspace with name '{workspace_update.workspace_name}' already exists.",
+                    detail=(
+                        f"Workspace with name '{workspace_update.workspace_name}' "
+                        "already exists."
+                    ),
                 )
 
         # Update the workspace
@@ -524,7 +535,8 @@ async def invite_user_to_workspace(
             asession=asession, workspace_name=invite.workspace_name
         )
 
-        # Check if it's a default workspace (users can't invite others to default workspaces)
+        # Check if it's a default workspace
+        # (users can't invite others to default workspaces)
         if workspace_db.is_default:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -542,13 +554,10 @@ async def invite_user_to_workspace(
                 detail="Only workspace administrators can invite users.",
             )
 
-        # Check if the invited user exists
-        user_exists = False
         try:
             invited_user = await get_user_by_username(
                 username=invite.email, asession=asession
             )
-            user_exists = True
 
             # Add existing user to workspace
             await add_existing_user_to_workspace(
@@ -574,7 +583,10 @@ async def invite_user_to_workspace(
             )
 
             return WorkspaceInviteResponse(
-                message=f"User {invite.email} has been added to workspace '{workspace_db.workspace_name}'.",
+                message=(
+                    f"User {invite.email} has been added to workspace "
+                    f"'{workspace_db.workspace_name}'."
+                ),
                 email=invite.email,
                 workspace_name=workspace_db.workspace_name,
                 user_exists=True,
@@ -601,7 +613,10 @@ async def invite_user_to_workspace(
             )
 
             return WorkspaceInviteResponse(
-                message=f"Invitation sent to {invite.email} to join workspace '{workspace_db.workspace_name}'.",
+                message=(
+                    f"Invitation sent to {invite.email} to join workspace "
+                    f"'{workspace_db.workspace_name}'."
+                ),
                 email=invite.email,
                 workspace_name=workspace_db.workspace_name,
                 user_exists=False,
@@ -639,7 +654,9 @@ async def get_workspace_users(
         if user_role is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"User does not have access to workspace with ID {workspace_id}.",
+                detail=(
+                    f"User does not have access to workspace with ID {workspace_id}."
+                ),
             )
 
         user_workspaces = await get_users_in_workspace(
@@ -708,26 +725,32 @@ async def remove_user_from_workspace_endpoint(
             user_to_remove = await get_user_by_username(
                 username=username, asession=asession
             )
-        except UserNotFoundError:
+        except UserNotFoundError as e:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User with username '{username}' not found.",
-            )
+            ) from e
 
         try:
             await remove_user_from_workspace(
                 asession=asession, user_db=user_to_remove, workspace_db=workspace_db
             )
             return MessageResponse(
-                message=f"User '{username}' successfully removed from workspace '{workspace_db.workspace_name}'."
+                message=(
+                    f"User '{username}' successfully removed from workspace "
+                    f"'{workspace_db.workspace_name}'."
+                )
             )
-        except UserNotFoundInWorkspaceError:
+        except UserNotFoundInWorkspaceError as e:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User '{username}' is not a member of workspace '{workspace_db.workspace_name}'.",
-            )
-    except WorkspaceNotFoundError:
+                detail=(
+                    f"User '{username}' is not a member of workspace "
+                    f"'{workspace_db.workspace_name}'."
+                ),
+            ) from e
+    except WorkspaceNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Workspace with ID {workspace_id} not found.",
-        )
+        ) from e

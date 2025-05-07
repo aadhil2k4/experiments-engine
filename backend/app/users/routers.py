@@ -3,22 +3,20 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.requests import Request
 from redis.asyncio import Redis
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import get_current_user, get_verified_user
+from ..auth.dependencies import get_current_user
 from ..auth.utils import generate_verification_token
 from ..config import DEFAULT_API_QUOTA, DEFAULT_EXPERIMENTS_QUOTA
 from ..database import get_async_session, get_redis
 from ..email import EmailService
+from ..users.exceptions import UserAlreadyExistsError
 from ..users.models import (
     UserDB,
     save_user_to_db,
-    update_user_api_key,
 )
-from ..users.exceptions import UserAlreadyExistsError
 from ..utils import generate_key, setup_logger, update_api_limits
-from .schemas import KeyResponse, UserCreate, UserCreateWithPassword, UserRetrieve
+from .schemas import UserCreate, UserCreateWithPassword, UserRetrieve
 
 # Router setup
 TAG_METADATA = {
@@ -46,15 +44,12 @@ async def create_user(
     try:
         # Import workspace functionality to avoid circular imports
         from ..workspaces.models import (
-            UserRoles, 
-            create_user_workspace_role, 
+            UserRoles,
+            create_user_workspace_role,
+            delete_pending_invitation,
             get_pending_invitations_by_email,
-            delete_pending_invitation
         )
-        from ..workspaces.utils import (
-            create_workspace,
-            get_workspace_by_workspace_id
-        )
+        from ..workspaces.utils import create_workspace, get_workspace_by_workspace_id
 
         # Create the user
         new_api_key = generate_key()
@@ -98,13 +93,13 @@ async def create_user(
         pending_invitations = await get_pending_invitations_by_email(
             asession=asession, email=user_new.username
         )
-        
+
         # Process pending invitations
         for invitation in pending_invitations:
             invite_workspace = await get_workspace_by_workspace_id(
                 asession=asession, workspace_id=invitation.workspace_id
             )
-            
+
             # Add user to the invited workspace
             await create_user_workspace_role(
                 asession=asession,
@@ -113,10 +108,10 @@ async def create_user(
                 user_role=invitation.role,
                 workspace_db=invite_workspace,
             )
-            
+
             # Delete the invitation
             await delete_pending_invitation(asession=asession, invitation=invitation)
-            
+
         # Send verification email
         token = await generate_verification_token(
             user_new.user_id, user_new.username, redis
@@ -152,4 +147,3 @@ async def get_user(
     """
 
     return UserRetrieve.model_validate(user_db)
-
