@@ -79,3 +79,23 @@ run-backend:
 
 run-frontend:
 	cd frontend && npm run dev
+
+server-start:
+	cd deployment/docker-compose && docker-compose up -d
+
+server-stop:
+	cd deployment/docker-compose && docker-compose down
+
+server-restart:
+	cd deployment/docker-compose && docker-compose restart
+
+server-status:
+	cd deployment/docker-compose && docker-compose ps
+
+server-prune:
+	cd deployment/docker-compose && docker system prune -f --force
+
+server-soft-reset:
+	make server-stop
+	make server-prune
+	make server-start

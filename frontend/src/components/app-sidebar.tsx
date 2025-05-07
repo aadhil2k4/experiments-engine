@@ -132,10 +132,12 @@ const AppSidebar = React.memo(function AppSidebar({
 
   React.useEffect(() => {
     if (token) {
+      console.log("Fetching user details");
       getUserDetails(token)
         .then((data) => setUserDetails(data))
         .catch((error) => console.error(error));
     }
+    console.log("user details", userDetails, token);
   }, [token]);
   return (
     <Sidebar collapsible="offcanvas" {...props}>

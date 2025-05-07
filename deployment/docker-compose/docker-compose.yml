@@ -21,16 +21,20 @@ services:
 
   frontend:
     image: idinsight/experiment_engine_frontend:latest
+    env_file:
+      - .base.env
+      - .backend.env
     build:
       context: ../../frontend
       dockerfile: Dockerfile
+      # args:
+      #   - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      #   - NEXT_PUBLIC_GOOGLE_LOGIN_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_LOGIN_CLIENT_ID}
     command: >
       node server.js
     depends_on:
       - backend
     restart: always
-    env_file:
-      - .base.env
 
   relational_db:
     image: postgres:16.4
