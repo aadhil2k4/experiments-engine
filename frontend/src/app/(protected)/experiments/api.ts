@@ -116,8 +116,6 @@ const getAllBayesianABExperiments = async (token: string | null) => {
   }
 };
 
-
-
 const getMABExperimentById = async (token: string | null, id: number) => {
   try {
     const response = await api.get(`/mab/${id}/`, {
