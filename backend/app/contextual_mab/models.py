@@ -60,6 +60,7 @@ class ContextualBanditDB(ExperimentBaseDB):
         return {
             "experiment_id": self.experiment_id,
             "user_id": self.user_id,
+            "workspace_id": self.workspace_id,
             "name": self.name,
             "description": self.description,
             "sticky_assignment": self.sticky_assignment,
@@ -198,6 +199,7 @@ class ContextualDrawDB(DrawsBaseDB):
 async def save_contextual_mab_to_db(
     experiment: ContextualBandit,
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> ContextualBanditDB:
     """
@@ -233,6 +235,7 @@ async def save_contextual_mab_to_db(
         name=experiment.name,
         description=experiment.description,
         user_id=user_id,
+        workspace_id=workspace_id,
         is_active=experiment.is_active,
         created_datetime_utc=datetime.now(timezone.utc),
         n_trials=0,
@@ -255,15 +258,17 @@ async def save_contextual_mab_to_db(
 
 async def get_all_contextual_mabs(
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> Sequence[ContextualBanditDB]:
     """
-    Get all the contextual experiments from the database.
+    Get all the contextual experiments from the database for a specific workspace.
     """
     statement = (
         select(ContextualBanditDB)
         .where(
             ContextualBanditDB.user_id == user_id,
+            ContextualBanditDB.workspace_id == workspace_id,
         )
         .order_by(ContextualBanditDB.experiment_id)
     )
@@ -272,7 +277,7 @@ async def get_all_contextual_mabs(
 
 
 async def get_contextual_mab_by_id(
-    experiment_id: int, user_id: int, asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> ContextualBanditDB | None:
     """
     Get the contextual experiment by id.
@@ -280,6 +285,7 @@ async def get_contextual_mab_by_id(
     result = await asession.execute(
         select(ContextualBanditDB)
         .where(ContextualBanditDB.user_id == user_id)
+        .where(ContextualBanditDB.workspace_id == workspace_id)
         .where(ContextualBanditDB.experiment_id == experiment_id)
     )
 
@@ -287,7 +293,7 @@ async def get_contextual_mab_by_id(
 
 
 async def delete_contextual_mab_by_id(
-    experiment_id: int, user_id: int, asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> None:
     """
     Delete the contextual experiment by id.
@@ -327,6 +333,7 @@ async def delete_contextual_mab_by_id(
         delete(ContextualBanditDB).where(
             and_(
                 ContextualBanditDB.user_id == user_id,
+                ContextualBanditDB.workspace_id == workspace_id,
                 ContextualBanditDB.experiment_id == experiment_id,
                 ContextualBanditDB.experiment_id == ExperimentBaseDB.experiment_id,
             )

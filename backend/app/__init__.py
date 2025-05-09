@@ -11,6 +11,7 @@ from .users.routers import (
     router as users_router,
 )  # to avoid circular imports
 from .utils import setup_logger
+from .workspaces.routers import router as workspaces_router
 
 logger = setup_logger()
 
@@ -26,7 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    await app.state.redis.close()
+    await app.state.redis.aclose()
     logger.info("Application finished")
 
 
@@ -55,11 +56,13 @@ def create_app() -> FastAPI:
         expose_headers=["*"],
     )
 
+    app = FastAPI(title="Experiments API", lifespan=lifespan)
     app.include_router(mab.router)
     app.include_router(contextual_mab.router)
     app.include_router(bayes_ab.router)
     app.include_router(auth.router)
     app.include_router(users_router)
     app.include_router(messages.router)
+    app.include_router(workspaces_router)
 
     return app

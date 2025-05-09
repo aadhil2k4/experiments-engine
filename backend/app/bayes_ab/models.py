@@ -52,6 +52,7 @@ class BayesianABDB(ExperimentBaseDB):
         return {
             "experiment_id": self.experiment_id,
             "user_id": self.user_id,
+            "workspace_id": self.workspace_id,
             "name": self.name,
             "description": self.description,
             "sticky_assignment": self.sticky_assignment,
@@ -157,6 +158,7 @@ class BayesianABDrawDB(DrawsBaseDB):
 async def save_bayes_ab_to_db(
     ab_experiment: BayesianAB,
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> BayesianABDB:
     """
@@ -181,6 +183,7 @@ async def save_bayes_ab_to_db(
         name=ab_experiment.name,
         description=ab_experiment.description,
         user_id=user_id,
+        workspace_id=workspace_id,
         is_active=ab_experiment.is_active,
         created_datetime_utc=datetime.now(timezone.utc),
         n_trials=0,
@@ -202,14 +205,17 @@ async def save_bayes_ab_to_db(
 
 async def get_all_bayes_ab_experiments(
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> Sequence[BayesianABDB]:
     """
-    Get all the A/B experiments from the database.
+    Get all the A/B experiments from the database for a specific workspace.
     """
     stmt = (
         select(BayesianABDB)
-        .where(BayesianABDB.user_id == user_id)
+        .where(
+            BayesianABDB.user_id == user_id, BayesianABDB.workspace_id == workspace_id
+        )
         .order_by(BayesianABDB.experiment_id)
     )
     result = await asession.execute(stmt)
@@ -219,14 +225,16 @@ async def get_all_bayes_ab_experiments(
 async def get_bayes_ab_experiment_by_id(
     experiment_id: int,
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> BayesianABDB | None:
     """
-    Get the A/B experiment by id.
+    Get the A/B experiment by id from a specific workspace.
     """
     stmt = select(BayesianABDB).where(
         and_(
             BayesianABDB.user_id == user_id,
+            BayesianABDB.workspace_id == workspace_id,
             BayesianABDB.experiment_id == experiment_id,
         )
     )
@@ -237,14 +245,16 @@ async def get_bayes_ab_experiment_by_id(
 async def delete_bayes_ab_experiment_by_id(
     experiment_id: int,
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> None:
     """
-    Delete the A/B experiment by id.
+    Delete the A/B experiment by id from a specific workspace.
     """
     stmt = delete(BayesianABDB).where(
         and_(
             BayesianABDB.user_id == user_id,
+            BayesianABDB.workspace_id == workspace_id,
             BayesianABDB.experiment_id == experiment_id,
             BayesianABDB.experiment_id == ExperimentBaseDB.experiment_id,
         )

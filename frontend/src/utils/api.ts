@@ -136,6 +136,204 @@ const resendVerification = async (username: string) => {
   }
 };
 
+const getUserWorkspaces = async (token: string | null) => {
+  try {
+    const response = await api.get("/workspace/", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error fetching user workspaces");
+  }
+};
+
+const getCurrentWorkspace = async (token: string | null) => {
+  try {
+    const response = await api.get("/workspace/current", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error fetching current workspace");
+  }
+};
+
+const switchWorkspace = async (token: string | null, workspaceName: string) => {
+  try {
+    const response = await api.post(
+      "/workspace/switch",
+      { workspace_name: workspaceName },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error("Error switching workspace");
+  }
+};
+
+const createWorkspace = async (
+  token: string | null,
+  workspaceName: string,
+  apiDailyQuota?: number,
+  contentQuota?: number
+) => {
+  try {
+    const response = await api.post(
+      "/workspace/",
+      {
+        workspace_name: workspaceName,
+        api_daily_quota: apiDailyQuota,
+        content_quota: contentQuota
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error("Error creating workspace");
+  }
+};
+
+const updateWorkspace = async (
+  token: string | null,
+  workspaceId: number,
+  workspaceName?: string,
+  apiDailyQuota?: number,
+  contentQuota?: number
+) => {
+  try {
+    const response = await api.put(
+      `/workspace/${workspaceId}`,
+      {
+        workspace_name: workspaceName,
+        api_daily_quota: apiDailyQuota,
+        content_quota: contentQuota,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error("Error updating workspace");
+  }
+};
+
+const rotateWorkspaceApiKey = async (token: string | null) => {
+  try {
+    const response = await api.put(
+      "/workspace/rotate-key",
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error("Error rotating workspace API key");
+  }
+};
+
+const getWorkspaceById = async (token: string | null, workspaceId: number) => {
+  try {
+    const response = await api.get(`/workspace/${workspaceId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error fetching workspace details");
+  }
+};
+
+const getWorkspaceUsers = async (token: string | null, workspaceId: number) => {
+  try {
+    const response = await api.get(`/workspace/${workspaceId}/users`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error fetching workspace users");
+  }
+};
+
+const inviteUserToWorkspace = async (
+  token: string | null,
+  email: string,
+  workspaceName: string,
+  role: string
+) => {
+  try {
+    const response = await api.post(
+      "/workspace/invite",
+      {
+        email,
+        workspace_name: workspaceName,
+        role,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error("Error inviting user to workspace");
+  }
+};
+
+const removeUserFromWorkspace = async (
+  token: string | null,
+  workspaceId: number,
+  username: string
+) => {
+  try {
+    const response = await api.delete(
+      `/workspace/${workspaceId}/users/${username}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error("Error removing user from workspace");
+  }
+};
+
+const getWorkspaceKeyHistory = async (token: string | null, workspaceId: number) => {
+  try {
+    const response = await api.get(`/workspace/${workspaceId}/key-history`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Error fetching API key history");
+  }
+};
+
 export const apiCalls = {
   getUser,
   getLoginToken,
@@ -145,5 +343,16 @@ export const apiCalls = {
   resetPassword,
   verifyEmail,
   resendVerification,
+  getUserWorkspaces,
+  getCurrentWorkspace,
+  switchWorkspace,
+  createWorkspace,
+  updateWorkspace,
+  rotateWorkspaceApiKey,
+  getWorkspaceById,
+  getWorkspaceUsers,
+  inviteUserToWorkspace,
+  removeUserFromWorkspace,
+  getWorkspaceKeyHistory,
 };
 export default api;

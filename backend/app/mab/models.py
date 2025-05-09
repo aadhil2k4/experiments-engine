@@ -50,6 +50,7 @@ class MultiArmedBanditDB(ExperimentBaseDB):
         return {
             "experiment_id": self.experiment_id,
             "user_id": self.user_id,
+            "workspace_id": self.workspace_id,
             "name": self.name,
             "description": self.description,
             "sticky_assignment": self.sticky_assignment,
@@ -159,6 +160,7 @@ class MABDrawDB(DrawsBaseDB):
 async def save_mab_to_db(
     experiment: MultiArmedBandit,
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> MultiArmedBanditDB:
     """
@@ -185,6 +187,7 @@ async def save_mab_to_db(
         name=experiment.name,
         description=experiment.description,
         user_id=user_id,
+        workspace_id=workspace_id,
         is_active=experiment.is_active,
         created_datetime_utc=datetime.now(timezone.utc),
         n_trials=0,
@@ -206,15 +209,17 @@ async def save_mab_to_db(
 
 async def get_all_mabs(
     user_id: int,
+    workspace_id: int,
     asession: AsyncSession,
 ) -> Sequence[MultiArmedBanditDB]:
     """
-    Get all the experiments from the database.
+    Get all the experiments from the database for a specific workspace.
     """
     statement = (
         select(MultiArmedBanditDB)
         .where(
             MultiArmedBanditDB.user_id == user_id,
+            MultiArmedBanditDB.workspace_id == workspace_id,
         )
         .order_by(MultiArmedBanditDB.experiment_id)
     )
@@ -223,7 +228,7 @@ async def get_all_mabs(
 
 
 async def get_mab_by_id(
-    experiment_id: int, user_id: int, asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> MultiArmedBanditDB | None:
     """
     Get the experiment by id.
@@ -231,6 +236,7 @@ async def get_mab_by_id(
     result = await asession.execute(
         select(MultiArmedBanditDB)
         .where(MultiArmedBanditDB.user_id == user_id)
+        .where(MultiArmedBanditDB.workspace_id == workspace_id)
         .where(MultiArmedBanditDB.experiment_id == experiment_id)
     )
 
@@ -238,7 +244,7 @@ async def get_mab_by_id(
 
 
 async def delete_mab_by_id(
-    experiment_id: int, user_id: int, asession: AsyncSession
+    experiment_id: int, user_id: int, workspace_id: int, asession: AsyncSession
 ) -> None:
     """
     Delete the experiment by id.
@@ -272,6 +278,7 @@ async def delete_mab_by_id(
                 MultiArmedBanditDB.experiment_id == experiment_id,
                 MultiArmedBanditDB.experiment_id == ExperimentBaseDB.experiment_id,
                 MultiArmedBanditDB.user_id == user_id,
+                MultiArmedBanditDB.workspace_id == workspace_id,
             )
         )
     )

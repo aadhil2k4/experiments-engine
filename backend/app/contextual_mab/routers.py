@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import authenticate_key, get_verified_user
+from ..auth.dependencies import authenticate_workspace_key, get_verified_user
 from ..database import get_async_session
 from ..models import get_notifications_from_db, save_notifications_to_db
 from ..schemas import (
@@ -14,8 +14,10 @@ from ..schemas import (
     ObservationType,
     Outcome,
 )
-from ..users.models import UserDB
+from ..users.models import UserDB, UserDBWithWorkspace
 from ..utils import setup_logger
+from ..workspaces.models import get_user_default_workspace, get_user_role_in_workspace
+from ..workspaces.schemas import UserRoles
 from .models import (
     ContextualBanditDB,
     ContextualDrawDB,
@@ -54,7 +56,21 @@ async def create_contextual_mabs(
     """
     Create a new contextual experiment with different priors for each context.
     """
-    cmab = await save_contextual_mab_to_db(experiment, user_db.user_id, asession)
+    workspace_db = await get_user_default_workspace(asession=asession, user_db=user_db)
+
+    user_role = await get_user_role_in_workspace(
+        asession=asession, user_db=user_db, workspace_db=workspace_db
+    )
+
+    if user_role != UserRoles.ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Only workspace administrators can create experiments.",
+        )
+
+    cmab = await save_contextual_mab_to_db(
+        experiment, user_db.user_id, workspace_db.workspace_id, asession
+    )
     notifications = await save_notifications_to_db(
         experiment_id=cmab.experiment_id,
         user_id=user_db.user_id,
@@ -74,7 +90,11 @@ async def get_contextual_mabs(
     """
     Get details of all experiments.
     """
-    experiments = await get_all_contextual_mabs(user_db.user_id, asession)
+    workspace_db = await get_user_default_workspace(asession=asession, user_db=user_db)
+
+    experiments = await get_all_contextual_mabs(
+        user_db.user_id, workspace_db.workspace_id, asession
+    )
     all_experiments = []
     for exp in experiments:
         exp_dict = exp.to_dict()
@@ -108,8 +128,10 @@ async def get_contextual_mab(
     """
     Get details of experiment with the provided `experiment_id`.
     """
+    workspace_db = await get_user_default_workspace(asession=asession, user_db=user_db)
+
     experiment = await get_contextual_mab_by_id(
-        experiment_id, user_db.user_id, asession
+        experiment_id, user_db.user_id, workspace_db.workspace_id, asession
     )
     if experiment is None:
         raise HTTPException(
@@ -136,14 +158,30 @@ async def delete_contextual_mab(
     Delete the experiment with the provided `experiment_id`.
     """
     try:
+        workspace_db = await get_user_default_workspace(
+            asession=asession, user_db=user_db
+        )
+
+        user_role = await get_user_role_in_workspace(
+            asession=asession, user_db=user_db, workspace_db=workspace_db
+        )
+
+        if user_role != UserRoles.ADMIN:
+            raise HTTPException(
+                status_code=403,
+                detail="Only workspace administrators can delete experiments.",
+            )
+
         experiment = await get_contextual_mab_by_id(
-            experiment_id, user_db.user_id, asession
+            experiment_id, user_db.user_id, workspace_db.workspace_id, asession
         )
         if experiment is None:
             raise HTTPException(
                 status_code=404, detail=f"Experiment with id {experiment_id} not found"
             )
-        await delete_contextual_mab_by_id(experiment_id, user_db.user_id, asession)
+        await delete_contextual_mab_by_id(
+            experiment_id, user_db.user_id, workspace_db.workspace_id, asession
+        )
         return {"detail": f"Experiment {experiment_id} deleted successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {e}") from e
@@ -155,14 +193,17 @@ async def draw_arm(
     context: List[ContextInput],
     draw_id: Optional[str] = None,
     client_id: Optional[str] = None,
-    user_db: UserDB = Depends(authenticate_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> CMABDrawResponse:
     """
     Get which arm to pull next for provided experiment.
     """
+    # Get workspace from user context
+    workspace_id = user_db.current_workspace.workspace_id
+
     experiment = await get_contextual_mab_by_id(
-        experiment_id, user_db.user_id, asession
+        experiment_id, user_db.user_id, workspace_id, asession
     )
 
     if experiment is None:
@@ -256,19 +297,23 @@ async def update_arm(
     experiment_id: int,
     draw_id: str,
     reward: float,
-    user_db: UserDB = Depends(authenticate_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContextualArmResponse:
     """
     Update the arm with the provided `arm_id` for the given
     `experiment_id` based on the reward.
     """
+    # Get workspace from user context
+    workspace_id = user_db.current_workspace.workspace_id
+
+    # Get the experiment and do checks
     experiment, draw = await validate_experiment_and_draw(
-        experiment_id, draw_id, user_db.user_id, asession
+        experiment_id, draw_id, user_db.user.user_id, workspace_id, asession
     )
 
     return await update_based_on_outcome(
-        experiment, draw, reward, asession, user_db, ObservationType.USER
+        experiment, draw, reward, asession, user_db.get_user_db(), ObservationType.USER
     )
 
 
@@ -278,14 +323,17 @@ async def update_arm(
 )
 async def get_outcomes(
     experiment_id: int,
-    user_db: UserDB = Depends(authenticate_key),
+    user_db: UserDBWithWorkspace = Depends(authenticate_workspace_key),
     asession: AsyncSession = Depends(get_async_session),
 ) -> list[CMABObservationResponse]:
     """
     Get the outcomes for the experiment.
     """
+    # Get workspace from user context
+    workspace_id = user_db.current_workspace.workspace_id
+
     experiment = await get_contextual_mab_by_id(
-        experiment_id, user_db.user_id, asession
+        experiment_id, user_db.user_id, workspace_id, asession
     )
     if not experiment:
         raise HTTPException(
@@ -301,10 +349,16 @@ async def get_outcomes(
 
 
 async def validate_experiment_and_draw(
-    experiment_id: int, draw_id: str, user_id: int, asession: AsyncSession
+    experiment_id: int,
+    draw_id: str,
+    user_id: int,
+    workspace_id: int,
+    asession: AsyncSession,
 ) -> tuple[ContextualBanditDB, ContextualDrawDB]:
     """Validate the experiment and draw"""
-    experiment = await get_contextual_mab_by_id(experiment_id, user_id, asession)
+    experiment = await get_contextual_mab_by_id(
+        experiment_id, user_id, workspace_id, asession
+    )
     if experiment is None:
         raise HTTPException(
             status_code=404, detail=f"Experiment with id {experiment_id} not found"
