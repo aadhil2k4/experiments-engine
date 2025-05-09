@@ -24,6 +24,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import api from "@/utils/api";
+import { apiCalls } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 
 type UserDetails = {
@@ -36,20 +37,22 @@ type UserDetails = {
 
 const getUserDetails = async (token: string | null) => {
   try {
-    const response = await api.get("/user", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    return {
-      username: response.data.username,
-      firstName: response.data.first_name,
-      lastName: response.data.last_name,
-      isActive: response.data.is_active,
-      isVerified: response.data.is_verified,
-    } as UserDetails;
-  } catch (error: unknown) {
+    if (token) {
+      const response = await apiCalls.getUser(token);
+      if (!response) {
+        throw new Error("No response from server");
+      }
+      return {
+        username: response.username,
+        firstName: response.first_name,
+        lastName: response.last_name,
+        isActive: response.is_active,
+        isVerified: response.is_verified,
+      } as UserDetails;
+  } else {
+    throw new Error("No token provided");
+  }
+} catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`Error fetching user details: ${error.message}`);
     } else {
