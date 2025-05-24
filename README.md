@@ -18,26 +18,6 @@ Navigate to the root of this repository and run `make fresh-env`
 
   #### a. For local development:
 
-  To install the necessary dependencies in the root directory run the commands:
-
-  `conda activate exp_engine` to activate virtual environment.
-
-  `pip install -r requirements-dev.txt` to install development dependencies.
-
-  `pip install -r requirements-docs.txt` to install docs-related tools.
-
-  Move to backend folder and install backend dependencies:
-
-  `cd backend`
-
-  `pip install -r requirements.txt`
-
-  Now, move to frontend folder to install frontend dependencies:
-
-  `cd ../frontend`
-
-  `npm install`
-
   From the root of the repository run `make run-backend`, and in a separate terminal session `make run-frontend`.
 
   #### b. For dev Docker deployment:
